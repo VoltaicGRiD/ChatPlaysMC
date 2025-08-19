@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "chat_plays_mc:item/ploht_chestplate"
+  }
+}

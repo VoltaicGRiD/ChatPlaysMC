@@ -1,0 +1,26 @@
+{
+  "criteria": {
+    "wheat": {
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:wheat"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "requirements": [
+    [
+      "wheat"
+    ]
+  ],
+	"rewards": {
+		"recipes": [
+			"chat_plays_mc:orio",
+			"chat_plays_mc:soap"
+		] 
+	},
+  "sends_telemetry_event": true
+}

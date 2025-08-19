@@ -1,0 +1,14 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "chat_plays_mc:ploht"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+				"texture": "chat_plays_mc:ploht"
+      }
+    ]
+  }
+}

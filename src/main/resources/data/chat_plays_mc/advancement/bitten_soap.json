@@ -1,0 +1,32 @@
+{
+  "criteria": {
+    "bitten_soap": {
+      "conditions": {
+        "items": [
+          {
+            "items": "chat_plays_mc:soap"
+          }
+        ]
+      },
+      "trigger": "minecraft:consume_item"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.chat_plays_mc.bitten_soap.description"
+    },
+    "icon": {
+      "count": 1,
+      "id": "chat_plays_mc:bitten_soap"
+    },
+    "title": {
+      "translate": "advancements.chat_plays_mc.bitten_soap.title"
+    }
+  },
+  "requirements": [
+    [
+      "bitten_soap"
+    ]
+  ],
+  "sends_telemetry_event": true
+}

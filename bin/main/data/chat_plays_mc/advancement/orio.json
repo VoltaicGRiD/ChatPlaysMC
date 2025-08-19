@@ -1,0 +1,32 @@
+{
+  "criteria": {
+    "orio": {
+      "conditions": {
+        "items": [
+          {
+            "items": "chat_plays_mc:orio"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.chat_plays_mc.orio.description"
+    },
+    "icon": {
+      "count": 1,
+      "id": "chat_plays_mc:orio"
+    },
+    "title": {
+      "translate": "advancements.chat_plays_mc.orio.title"
+    }
+  },
+  "requirements": [
+    [
+      "orio"
+    ]
+  ],
+  "sends_telemetry_event": true
+}

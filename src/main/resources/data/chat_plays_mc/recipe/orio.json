@@ -1,0 +1,15 @@
+{
+    "type": "minecraft:crafting_shapeless",
+    "ingredients": [
+        "minecraft:wheat",
+        "minecraft:wheat",
+        "minecraft:wheat",
+        "minecraft:water_bucket",
+        "minecraft:apple",
+        "minecraft:coal"
+    ],
+    "result": {
+			"id": "chat_plays_mc:orio",
+			"count": 8
+		}
+}

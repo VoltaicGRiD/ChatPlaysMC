@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "chat_plays_mc",
+  "version": "${version}",
+  "name": "Chat Plays MC",
+  "description": "A starter template for a Fabric 1.21.x mod.",
+  "authors": ["You"],
+  "contact": {
+    "sources": "https://example.com/chat_plays_mc"
+  },
+  "license": "MIT",
+  "icon": "assets/chat_plays_mc/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.voltaicgrid.chatplaysmc.ChatPlaysMcMod"
+    ],
+    "client": [
+      "com.voltaicgrid.chatplaysmc.ChatPlaysMcClient"
+    ]
+  },
+  "mixins": [
+    "chat_plays_mc.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.2",
+    "minecraft": [
+      ">=1.21",
+      "<1.22"
+    ],
+    "java": ">=21"
+  },
+  "suggests": {
+    "fabric-api": "*"
+  }
+}

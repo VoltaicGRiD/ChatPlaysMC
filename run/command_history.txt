@@ -1,0 +1,50 @@
+/give @s chat_plays_mc:ploht_helmet
+/kill @e[type=minecraft:wither_skeleton[
+/kill @e[type=minecraft:wither_skeleton]
+/give @s chat_plays_mc:ploht_leggings
+/give @s chat_plays_mc:ploht_helmet
+/give @s chat_plays_mc:ploht_chestplate
+/give @s chat_plays_mc:ploht_boots
+/summon minecraft:wither_skeleton
+/kill @e[type=minecraft:wither_skeleton]
+/give @s chat_plays_mc:ploht_boots
+/give @s chat_plays_mc:ploht_chestplate
+/give @s chat_plays_mc:ploht_helmet
+/give @s chat_plays_mc:ploht_leggings
+/summon minecraft:creeper
+/summon minecraft:warden
+/kill @e[type=minecraft:warden]
+/summon minecraft:warden
+/kill @e[type=minecraft:warden]
+/summon minecraft:warden
+/kill @e[type=minecraft:warden]
+/give @s chat_plays_mc:ploht_leggings
+/give @s chat_plays_mc:ploht_helmet
+/give @s chat_plays_mc:ploht_chestplate
+/give @s chat_plays_mc:ploht_boots
+/summon minecraft:warden
+/kill @e[type=minecraft:warden]
+/give @s chat_plays_mc:ploht_boots
+/give @s chat_plays_mc:ploht_chestplate
+/give @s chat_plays_mc:ploht_helmet
+/give @s chat_plays_mc:ploht_leggings
+/summon minecraft:skeleton
+/difficulty hard
+/time set night
+/time add 1000
+/gamerule doDaylightCycle false
+/give @s minecraft:diamond_boots
+/give @s minecraft:diamond_helmet
+/give @s minecraft:diamond_chestplate
+/give @s minecraft:diamond_leggings
+/effect give @s minecraft:regeneration 3 255
+/summon minecraft:zombie
+/kill @e[type=!minecraft:player]
+/effect give @s minecraft:regeneration 3 255
+/summon minecraft:zombie
+/time set day
+/difficulty peaceful
+/reset
+/give @s minecraft:diamond_pickaxe
+/summon pig
+/summon cow

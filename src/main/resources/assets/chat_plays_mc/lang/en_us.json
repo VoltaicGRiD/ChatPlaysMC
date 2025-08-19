@@ -1,0 +1,11 @@
+{
+  "mod.chat_plays_mc.name": "Chat Plays MC",
+	"item.chat_plays_mc.orio": "Orio",
+	"item.chat_plays_mc.soap": "Soap",
+	"advancements.chat_plays_mc.orio.title": "The Ingredients for Soap",
+	"advancements.chat_plays_mc.orio.description": "Craft some Orios using wheat, an apple, coal, and a water bucket.",
+	"advancements.chat_plays_mc.soap.title": "Actually Just Soap",
+	"advancements.chat_plays_mc.soap.description": "It would be really stupid to eat this soap.",
+	"advancements.chat_plays_mc.bitten_soap.title": "...you actually ate it!? +$10",
+	"advancements.chat_plays_mc.bitten_soap.description": "You really ate the soap? Why would you do that?"
+}

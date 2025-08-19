@@ -1,0 +1,18 @@
+{
+		"type": "minecraft:crafting_shaped",
+    "pattern": [
+        "###",
+        "BWB",
+        "CCC"
+    ],
+    "key": {
+        "#": "minecraft:wheat",
+        "B": "minecraft:bone_meal",
+        "W": "minecraft:water_bucket",
+        "C": "minecraft:coal"
+    },
+    "result": {
+        "id": "chat_plays_mc:soap",
+        "count": 4
+    }
+}
