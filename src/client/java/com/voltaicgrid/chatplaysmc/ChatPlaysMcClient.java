@@ -13,9 +13,9 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.ColorHelper;
 import org.lwjgl.glfw.GLFW;
 
-import com.github.philippheuer.events4j.core.EventManager;
 import com.github.twitch4j.TwitchClient;
 import com.github.twitch4j.TwitchClientBuilder;
+import com.github.twitch4j.eventsub.*;
 import com.github.twitch4j.chat.events.channel.ChannelMessageEvent;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
@@ -43,6 +43,7 @@ import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.screen.AbstractFurnaceScreenHandler;
@@ -62,7 +63,6 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     private static KeyBinding lookRightKey;
 
     private static TwitchClient twitchClient;
-    private static EventManager eventManager;
     
     // Queued actions driven by client ticks (avoid thread/sleep issues)
     private static int queuedBreakBlocks = 0;
@@ -87,455 +87,454 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     public static final String MODID = "chat_plays_mc";
     
     @Override
-    public void onInitializeClient() {
-        twitchClient = TwitchClientBuilder.builder()
-    		.withEnableHelix(true)
-    		.withEnableChat(true)
-    		.build();
-        
-        eventManager = twitchClient.getEventManager();
-        
-        
-        twitchClient.getChat().joinChannel("oridont");
-              
-        eventManager.onEvent(ChannelMessageEvent.class, event -> {
-            final Matcher movementMatcher = Pattern.compile("\\b(w|s|a|d|forward|backward|left|right|jump|sprint|sneak)\\s*(\\d+(?:\\.\\d+)?)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-            final Matcher lookMatcher = Pattern.compile("\\b(lu|ld|ll|lr|look\\s+up|look\\s+down|look\\s+left|look\\s+right)\\s*(\\d+(?:\\.\\d+)?)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-            final Matcher clickMatcher = Pattern.compile("\\b(rc|lc|dc|right\\s+click|left\\s+click|double\\s*click)\\s*(\\d+(?:\\.\\d+)?)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-            final Matcher screenMatcher = Pattern.compile("\\b(inv|inventory|close|exit)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-            final Matcher slotMatcher = Pattern.compile("\\b(slot)\\s*(\\d+)\\s*(all|move|craft|throw)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-            final Matcher lockonMatcher = Pattern.compile("\\b(lock)\\s*(on|off)\\s*(\\w*)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-            final Matcher targetMatcher = Pattern.compile("\\b(target|lock)\\s*(next|previous|prev|nearest)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-            final Matcher toggleMatcher = Pattern.compile("\\b(toggle)\\s*(attack|break|place)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-            final Matcher resetMatcher = Pattern.compile("\\breset\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-            // Add craft-by-name matcher (supports minecraft:id or plain name)
-            final Matcher craftByNameMatcher = Pattern.compile("\\bcraft\\s+([a-z0-9_:\\-]+)(?:\\s+(all|max|one|1|\\d+))?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-            final Matcher craftIndexMatcher = Pattern.compile("\\bcraft\\s+(\\d+)\\s*(all|max)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-            final Matcher rbSearchMatcher = Pattern.compile("\\brb\\s+search\\s+(.+)", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-            final Matcher swimMatcher = Pattern.compile("\\b(swim|dive)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-            final Matcher extraMatcher = Pattern.compile("\\b(f3|swap|fov)\\s*(\\d+)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-            final Matcher buildMatcher = Pattern.compile("\\b(build)\\s*(tower|mine|shaft)\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-            
-            // Debug: Print the message to see what we're processing
-            System.out.println("Processing message: " + event.getMessage());
+    public void onInitializeClient() {       
+   	
+        ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
         	
-            if (buildMatcher.find()) {
-            	String cmd = buildMatcher.group(2).toLowerCase();
-            	int count = Integer.parseInt(buildMatcher.group(3));
-            	
-            	if (cmd.equals("tower")) {
-            		// Start building a tower: queue placing blocks while looking straight down
-					MinecraftClient client = MinecraftClient.getInstance();
-					client.execute(() -> {
-						if (client.player != null) {
-							// Look straight down
-							client.player.setPitch(90.0f);
-							// Start moving up and queue placing blocks
-							queuedPlaceBlocks = count;
-							buildingTower = true;
-						}
-					});
-				} else if (cmd.equals("bridge")) {
-					// Start building a bridge: queue placing blocks while moving forward
-					MinecraftClient client = MinecraftClient.getInstance();
-					client.execute(() -> {
-						if (client.player != null) {
-							// Level pitch
-							client.player.setPitch(0.0f);
-							// Start moving forward and queue placing blocks
-							queuedPlaceBlocks = count;
-							buildingBridge = true;
-						}
-					});
-            	} else if (cmd.equals("mine")) {
-					// Set pitch to 0, and set yaw to nearest 90 degree (N/E/S/W) to dig straight
-					MinecraftClient client = MinecraftClient.getInstance();
-					client.execute(() -> {
-						if (client.player != null) {
-							// Level pitch
-							client.player.setPitch(0.0f);
-							// Snap yaw to nearest 90 degrees
-							float yaw = client.player.getYaw();
-							float snappedYaw = MathHelper.wrapDegrees(Math.round(yaw / 90.0f) * 90.0f);
-							client.player.setYaw(snappedYaw);
-							
-							queuedBreakBlocks = count;
-							buildingMine = true;
-					        brokenBlockIndex = 0;
-						}
-					});
-				} else if (cmd.equals("shaft")) {
-					MinecraftClient client = MinecraftClient.getInstance();
-					client.execute(() -> {
-						if (client.player != null) {
-							// Level pitch
-							client.player.setPitch(0.0f);
-							// Snap yaw to nearest 90 degrees
-							float yaw = client.player.getYaw();
-							float snappedYaw = MathHelper.wrapDegrees(Math.round(yaw / 90.0f) * 90.0f);
-							client.player.setYaw(snappedYaw);
-//							// Move to front of the block we're standing on
-//							Vec3d pos = client.player.getPos();
-//							client.player.updatePosition(pos.x + MathHelper.sin(-snappedYaw * ((float)Math.PI / 180F)) * 0.5, pos.y, pos.z + MathHelper.cos(snappedYaw * ((float)Math.PI / 180F)) * 0.5);
-							
-							queuedBreakBlocks = count;
-							buildingShaft = true;
-					        brokenBlockIndex = 0;
-						}
-					});
-				}
-            }
-            
-            if (extraMatcher.find()) {
-            	String cmd = extraMatcher.group(1).toLowerCase();
-				MinecraftClient client = MinecraftClient.getInstance();
+        	twitchClient = TwitchClientBuilder.builder()
+            		.withEnableChat(true)
+            		.build();
+        	
+        	twitchClient.getChat().joinChannel("oridont");
 
-            	if (cmd.equals("f3")) {
-//    				client.execute(() -> {
-//    					if (client.options != null) {
-//    						client.options.debugKey.setPressed(true);
-//    						// Release after a short delay to simulate key press
-//    						try {
-//    							Thread.sleep(50);
-//    						} catch (InterruptedException e) {
-//    							// Ignore
-//    						}
-//    						client.options.debugKey.setPressed(false);
-//    					}
-//    				});
-				} else if (cmd.equals("swap")) {
-					// Swap main/off hand
-					client.execute(() -> {
-						if (client.player != null && client.interactionManager != null) {
-							client.options.swapHandsKey.setPressed(true);
-							try {
-								Thread.sleep(50);
-							} catch (InterruptedException e) {
-								// Ignore
-							}
-							client.options.swapHandsKey.setPressed(false);
-						}
-					});
-					System.out.println("Swapping main/off hand");
-            	} 
-//				else if (cmd.equals("fov") {
-//					String num = extraMatcher.group(2);
-//					if (num != null) {
-//						int fovChange = Integer.parseInt(num);
-//						client.execute(() -> {
-//							if (client.options != null) {
-//								float newFov = fovChange;
-//								newFov = MathHelper.clamp(newFov, 30.0f, 110.0f);
-//								client.options.GameOptions.fov = newFov;
-//								System.out.println("Set FOV to: " + newFov);
-//							}
-//						});
-//					}
-//            	}
-            }
-            
-        	if (movementMatcher.find()) {
-        		String cmd = movementMatcher.group(1).toLowerCase();
-                String num = movementMatcher.group(2);
+        	twitchClient.getEventManager().onEvent(ChannelMessageEvent.class, event -> {
+                final Matcher movementMatcher = Pattern.compile("\\b(w|s|a|d|forward|backward|left|right|jump|sprint|sneak)\\s*(\\d+(?:\\.\\d+)?)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher lookMatcher = Pattern.compile("\\b(lu|ld|ll|lr|look\\s+up|look\\s+down|look\\s+left|look\\s+right)\\s*(\\d+(?:\\.\\d+)?)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher clickMatcher = Pattern.compile("\\b(rc|lc|dc|right\\s+click|left\\s+click|double\\s*click)\\s*(\\d+(?:\\.\\d+)?)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher screenMatcher = Pattern.compile("\\b(inv|inventory|close|exit)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher slotMatcher = Pattern.compile("\\b(slot)\\s*(\\d+)\\s*(all|move|craft|throw)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher lockonMatcher = Pattern.compile("\\b(lock)\\s*(on|off)\\s*(\\w*)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher targetMatcher = Pattern.compile("\\b(target|lock)\\s*(next|previous|prev|nearest)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher toggleMatcher = Pattern.compile("\\b(toggle)\\s*(attack|break|place)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher resetMatcher = Pattern.compile("\\breset\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                // Add craft-by-name matcher (supports minecraft:id or plain name)
+                final Matcher craftByNameMatcher = Pattern.compile("\\bcraft\\s+([a-z0-9_:\\-]+)(?:\\s+(all|max|one|1|\\d+))?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher craftIndexMatcher = Pattern.compile("\\bcraft\\s+(\\d+)\\s*(all|max)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher rbSearchMatcher = Pattern.compile("\\brb\\s+search\\s+(.+)", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher swimMatcher = Pattern.compile("\\b(swim|dive)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher extraMatcher = Pattern.compile("\\b(f3|swap|fov)\\s*(\\d+)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher buildMatcher = Pattern.compile("\\b(build)\\s*(tower|mine|shaft)\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 
-                switch (cmd) {
-                    case "w", "forward" -> handleMove(MinecraftClient.getInstance(), num == null ? 0.25f : Float.parseFloat(num), 0);
-                    case "s", "backward" -> handleMove(MinecraftClient.getInstance(), num == null ? 0.25f : Float.parseFloat(num), 1);
-                    case "a", "left" -> handleMove(MinecraftClient.getInstance(), num == null ? 0.25f : Float.parseFloat(num), 2);
-                    case "d", "right" -> handleMove(MinecraftClient.getInstance(), num == null ? 0.25f : Float.parseFloat(num), 3);
-                    case "sprint" -> {
-                        MinecraftClient client = MinecraftClient.getInstance();
-                        client.execute(() -> {
-                            sprintToggle = !sprintToggle;
-                            if (!sprintToggle) {
-                                if (client.options != null) client.options.sprintKey.setPressed(false);
-                                if (client.player != null) client.player.setSprinting(false);
-                            }
-                        });
-                    }
-                    case "jump" -> {
-                        MinecraftClient client = MinecraftClient.getInstance();
-                        client.execute(() -> {
-                            if (client.player != null) {
-                                client.player.jump();
-                            }
-                        });
-                    }
-                    case "sneak" -> {
-                        MinecraftClient client = MinecraftClient.getInstance();
-                        client.execute(() -> {
-                            sneakToggle = !sneakToggle;
-                            if (!sneakToggle && client.options != null) {
-                                client.options.sneakKey.setPressed(false);
-                            }
-                        });
-                    }
-                }
-        	}
-        	
-        	if (swimMatcher.find()) {
-        		String cmd = swimMatcher.group(1).toLowerCase();
-				MinecraftClient client = MinecraftClient.getInstance();
-				client.execute(() -> {
-					if (client.player != null) {
-						if (cmd.equals("swim")) {
-							client.options.jumpKey.setPressed(true);
-						} else if (cmd.equals("dive")) {
-							client.options.sneakKey.setPressed(true);
-						}
-					}
-				});
-        	}
-        	
-        	if (resetMatcher.find()) {
-				// Reset all queued actions and states
-				queuedBreakBlocks = 0;
-				queuedPlaceBlocks = 0;
-				breakingPos = null;
-				breakingSide = null;
-				moveDistanceRemaining = 0.0;
-				moveDirection = -1;
-				prevPos = null;
-				moveStuckTicks = 0;
-				useTicksRemaining = 0;
-				// toggle states
-				sprintToggle = false;
-				sneakToggle = false;
-				
-				// Also release all movement keys immediately
-				MinecraftClient client = MinecraftClient.getInstance();
-				client.execute(() -> {
-					if (client.options != null) {
-						releaseMovementKeys(client.options);
-						client.options.sprintKey.setPressed(false);
-						client.options.sneakKey.setPressed(false);
-					}
-					// Stop sprinting as well
-					if (client.player != null) {
-						client.player.setSprinting(false);
-					}
-				});
-				
-				System.out.println("Reset all queued actions and states");
-			}
-        	
-        	if (lookMatcher.find()) {
-        		String cmd = lookMatcher.group(1).toLowerCase();
-				String num = lookMatcher.group(2);
-				
-				switch (cmd) {
-					case "lu", "look up" -> handleLook(MinecraftClient.getInstance(), num == null ? 5f : Float.parseFloat(num), 0);
-					case "ld", "look down" -> handleLook(MinecraftClient.getInstance(), num == null ? 5f : Float.parseFloat(num), 1);
-					case "ll", "look left" -> handleLook(MinecraftClient.getInstance(), num == null ? 5f : Float.parseFloat(num), 2);
-					case "lr", "look right" -> handleLook(MinecraftClient.getInstance(), num == null ? 5f : Float.parseFloat(num), 3);
-				}
-        	}
-        	
-        	if (clickMatcher.find()) {
-        		String cmd = clickMatcher.group(1).toLowerCase();
-				String num = clickMatcher.group(2);
-				int count = num == null ? 1 : Math.max(1, Math.round(Float.parseFloat(num)));
-				switch (cmd) {
-					case "rc", "right click" -> handleClick(MinecraftClient.getInstance(), count, true);
-					case "lc", "left click" -> handleClick(MinecraftClient.getInstance(), count, false);
-					case "dc", "double click" -> handleClick(MinecraftClient.getInstance(), Math.max(2, count), true);
-				}
-			}
-			
-			if (screenMatcher.find()) {
-				String cmd = screenMatcher.group(1).toLowerCase();
-				
-				switch (cmd) {
-					case "inv", "inventory" -> {
-						MinecraftClient client = MinecraftClient.getInstance();
-						client.execute(() -> {
-							if (client.player != null && client.currentScreen == null) {
-								client.setScreen(new net.minecraft.client.gui.screen.ingame.InventoryScreen(client.player));
-							}
-						});
-					}
-					case "close", "exit" -> {
-						MinecraftClient client = MinecraftClient.getInstance();
-						client.execute(() -> {
-							if (client.currentScreen != null) {
-								client.setScreen(null);
-							}
-						});
-					}
-				}
-        	}
-			
-			if (slotMatcher.find()) {
-				System.out.println("Slot matcher found! Groups: " + slotMatcher.group(1) + ", " + slotMatcher.group(2) + ", " + slotMatcher.group(3));
-				MinecraftClient client = MinecraftClient.getInstance();
-				String num = slotMatcher.group(2);
-				String cmd = slotMatcher.group(3);
-				
-				// Handle case where cmd might be null (just "slot X" without action)
-				if (cmd == null) {
-					cmd = "pickup"; // default action
-				} else {
-					cmd = cmd.toLowerCase();
-				}
-				
-				// Create final variable for lambda
-				final String finalCmd = cmd;
-				
-				System.out.println("Slot command: slot=" + num + ", action=" + finalCmd + ", screen=" + (client.currentScreen != null ? client.currentScreen.getClass().getSimpleName() : "null"));
-				
-				if (client.currentScreen == null) {
-					if (num != null) {
-						int slot = Integer.parseInt(num);
-						if (slot >= 1 && slot <= 9) {
-							System.out.println("Setting hotbar slot to: " + (slot - 1));
-							client.execute(() -> {
-								if (client.player != null) {
-									client.player.getInventory().setSelectedSlot(slot - 1);
-								}
-							});
-						}
-					}
-				}
-				
-				else {
-					// If in a screen, try to click the slot in the GUI
-					if (num != null) {
-						int slot = Integer.parseInt(num);
-						int slotIndex = slot - 1;
-						
-						System.out.println("Attempting slot interaction: slot=" + slotIndex + ", action=" + finalCmd);
-						
-						client.execute(() -> {
-							if (client.interactionManager != null && client.player != null && client.currentScreen instanceof HandledScreen<?> handledScreen) {
-								var screenHandler = handledScreen.getScreenHandler();
-								
-								System.out.println("Screen handler has " + screenHandler.slots.size() + " slots");
-								
-								// Validate slot index
-								if (slotIndex >= 0 && slotIndex < screenHandler.slots.size()) {
-									// Special handling: emulate vanilla double-click collect behavior
-									if ("all".equals(finalCmd)) {
-										doubleClickCollect(client, handledScreen, slotIndex);
-											return;
-									}
-									
-									net.minecraft.screen.slot.SlotActionType actionType;
-									int button = 0;
-									
-									switch (finalCmd) {
-										case "move" -> {
-											actionType = net.minecraft.screen.slot.SlotActionType.QUICK_MOVE;
-											button = 0;
-										}
-										case "craft" -> {
-											actionType = net.minecraft.screen.slot.SlotActionType.QUICK_CRAFT;
-											button = 0;
-										}
-										case "throw" -> {
-											actionType = net.minecraft.screen.slot.SlotActionType.THROW;
-											button = 0; // throw one item
-										}
-										default -> {
-											actionType = net.minecraft.screen.slot.SlotActionType.PICKUP;
-											button = 0; // left click
-										}
-									}
-									
-									System.out.println("Executing slot click: slot=" + slotIndex + ", button=" + button + ", action=" + actionType);
-									
-									// Use interaction manager to properly sync with server
-									client.interactionManager.clickSlot(
-										screenHandler.syncId,
-										slotIndex,
-										button,
-										actionType,
-										client.player
-									);
-								} else {
-									System.out.println("Invalid slot index: " + slotIndex + " (max: " + (screenHandler.slots.size() - 1) + ")");
-								}
-							} else {
-								System.out.println("Cannot interact with slot - missing requirements");
-							}
-						});
-					}
-				}
-			}
-			
-			if (lockonMatcher.find()) {
-                MinecraftClient client = MinecraftClient.getInstance();
-                client.execute(() -> {
-                    String state = lockonMatcher.group(2).toLowerCase();
-                    if (state.equals("on")) {
-                        LockOnManager.setEnabled(true);
-                    } else if (state.equals("off")) {
-                        LockOnManager.setEnabled(false);
-                    }
-                    String entityType = lockonMatcher.group(3).toLowerCase();
-                    if (!entityType.isEmpty()) {
-                        LockOnManager.setEntityTypeKey(entityType);
-                    }
-                    // When enabling lock-on, auto-pick the nearest target so camera starts tracking immediately
-                    if (LockOnManager.isEnabled()) {
-                        LockOnManager.setTargetingCommand("nearest");
-                    }
-                });
-            }
-			
-			if (targetMatcher.find()) {
-                MinecraftClient client = MinecraftClient.getInstance();
-                client.execute(() -> {
-                    String command = targetMatcher.group(2).toLowerCase();
-                    if (LockOnManager.isEnabled()) {
-                        LockOnManager.setTargetingCommand(command);
-                        System.out.println("Targeting command: " + command);
-                    } else {
-                        System.out.println("Lock-on is not enabled. Use 'lock on [entity_type]' first.");
-                    }
-                });
-            }
-			
-			if (toggleMatcher.find()) {
-				MinecraftClient client = MinecraftClient.getInstance();
-				client.execute(() -> {
-					String action = toggleMatcher.group(2).toLowerCase();
-					switch (action) {
-						case "attack", "break" -> {
-							// Toggle breaking mode: if queued, stop; if not, start queuing indefinitely
-							if (queuedBreakBlocks > 0) {
-								queuedBreakBlocks = 0;
-							} else {
-								queuedBreakBlocks = Integer.MAX_VALUE; // effectively infinite until stopped
-							}
-						}
-						case "place" -> {
-							// Toggle placing mode similarly
-							if (queuedPlaceBlocks > 0) {
-								queuedPlaceBlocks = 0;
-							} else {
-								queuedPlaceBlocks = Integer.MAX_VALUE;
-							}
-						}
-					}
-				});
-			}
-			
-			// Handle recipe book search first
-            if (rbSearchMatcher.find()) {
-                MinecraftClient client = MinecraftClient.getInstance();
-                String query = rbSearchMatcher.group(1).trim();
-                client.execute(() -> setRecipeBookSearch(client, query));
-            }
+                // Debug: Print the message to see what we're processing
+                System.out.println("Processing message: " + event.getMessage());
+            	
+                if (buildMatcher.find()) {
+                	String cmd = buildMatcher.group(2).toLowerCase();
+                	int count = Integer.parseInt(buildMatcher.group(3));
+                	
+                	if (cmd.equals("tower")) {
+                		// Start building a tower: queue placing blocks while looking straight down
+    					client.execute(() -> {
+    						if (client.player != null) {
+    							// Look straight down
+    							client.player.setPitch(90.0f);
+    							// Start moving up and queue placing blocks
+    							queuedPlaceBlocks = count;
+    							buildingTower = true;
+    						}
+    					});
+    				} else if (cmd.equals("bridge")) {
+    					// Start building a bridge: queue placing blocks while moving forward
 
-            // Handle crafting commands: prefer index, then by-name, then quick
-            if (craftIndexMatcher.find()) {
-                MinecraftClient client = MinecraftClient.getInstance();
-                int idx = Integer.parseInt(craftIndexMatcher.group(1));
-                boolean all = craftIndexMatcher.group(2) != null && craftIndexMatcher.group(2).equalsIgnoreCase("all") || (craftIndexMatcher.group(2) != null && craftIndexMatcher.group(2).equalsIgnoreCase("max"));
-                client.execute(() -> handleCraftByIndex(client, idx, all));
-            } 
-        });
-    	
+    					client.execute(() -> {
+    						if (client.player != null) {
+    							// Level pitch
+    							client.player.setPitch(0.0f);
+    							// Start moving forward and queue placing blocks
+    							queuedPlaceBlocks = count;
+    							buildingBridge = true;
+    						}
+    					});
+                	} else if (cmd.equals("mine")) {
+    					// Set pitch to 0, and set yaw to nearest 90 degree (N/E/S/W) to dig straight
+
+    					client.execute(() -> {
+    						if (client.player != null) {
+    							// Level pitch
+    							client.player.setPitch(0.0f);
+    							// Snap yaw to nearest 90 degrees
+    							float yaw = client.player.getYaw();
+    							float snappedYaw = MathHelper.wrapDegrees(Math.round(yaw / 90.0f) * 90.0f);
+    							client.player.setYaw(snappedYaw);
+    							
+    							queuedBreakBlocks = count;
+    							buildingMine = true;
+    					        brokenBlockIndex = 0;
+    						}
+    					});
+    				} else if (cmd.equals("shaft")) {
+
+    					client.execute(() -> {
+    						if (client.player != null) {
+    							// Level pitch
+    							client.player.setPitch(0.0f);
+    							// Snap yaw to nearest 90 degrees
+    							float yaw = client.player.getYaw();
+    							float snappedYaw = MathHelper.wrapDegrees(Math.round(yaw / 90.0f) * 90.0f);
+    							client.player.setYaw(snappedYaw);
+//    							// Move to front of the block we're standing on
+//    							Vec3d pos = client.player.getPos();
+//    							client.player.updatePosition(pos.x + MathHelper.sin(-snappedYaw * ((float)Math.PI / 180F)) * 0.5, pos.y, pos.z + MathHelper.cos(snappedYaw * ((float)Math.PI / 180F)) * 0.5);
+    							
+    							queuedBreakBlocks = count;
+    							buildingShaft = true;
+    					        brokenBlockIndex = 0;
+    						}
+    					});
+    				}
+                }
+                
+                if (extraMatcher.find()) {
+                	String cmd = extraMatcher.group(1).toLowerCase();
+
+                	if (cmd.equals("f3")) {
+//        				client.execute(() -> {
+//        					if (client.options != null) {
+//        						client.options.debugKey.setPressed(true);
+//        						// Release after a short delay to simulate key press
+//        						try {
+//        							Thread.sleep(50);
+//        						} catch (InterruptedException e) {
+//        							// Ignore
+//        						}
+//        						client.options.debugKey.setPressed(false);
+//        					}
+//        				});
+    				} else if (cmd.equals("swap")) {
+    					// Swap main/off hand
+    					client.execute(() -> {
+    						if (client.player != null && client.interactionManager != null) {
+    							client.options.swapHandsKey.setPressed(true);
+    							try {
+    								Thread.sleep(50);
+    							} catch (InterruptedException e) {
+    								// Ignore
+    							}
+    							client.options.swapHandsKey.setPressed(false);
+    						}
+    					});
+    					System.out.println("Swapping main/off hand");
+                	} 
+//    				else if (cmd.equals("fov") {
+//    					String num = extraMatcher.group(2);
+//    					if (num != null) {
+//    						int fovChange = Integer.parseInt(num);
+//    						client.execute(() -> {
+//    							if (client.options != null) {
+//    								float newFov = fovChange;
+//    								newFov = MathHelper.clamp(newFov, 30.0f, 110.0f);
+//    								client.options.GameOptions.fov = newFov;
+//    								System.out.println("Set FOV to: " + newFov);
+//    							}
+//    						});
+//    					}
+//                	}
+                }
+                
+            	if (movementMatcher.find()) {
+            		String cmd = movementMatcher.group(1).toLowerCase();
+                    String num = movementMatcher.group(2);
+                    
+                    switch (cmd) {
+                        case "w", "forward" -> handleMove(MinecraftClient.getInstance(), num == null ? 0.25f : Float.parseFloat(num), 0);
+                        case "s", "backward" -> handleMove(MinecraftClient.getInstance(), num == null ? 0.25f : Float.parseFloat(num), 1);
+                        case "a", "left" -> handleMove(MinecraftClient.getInstance(), num == null ? 0.25f : Float.parseFloat(num), 2);
+                        case "d", "right" -> handleMove(MinecraftClient.getInstance(), num == null ? 0.25f : Float.parseFloat(num), 3);
+                        case "sprint" -> {
+                            
+                            client.execute(() -> {
+                                sprintToggle = !sprintToggle;
+                                if (!sprintToggle) {
+                                    if (client.options != null) client.options.sprintKey.setPressed(false);
+                                    if (client.player != null) client.player.setSprinting(false);
+                                }
+                            });
+                        }
+                        case "jump" -> {
+                            
+                            client.execute(() -> {
+                                if (client.player != null) {
+                                    client.player.jump();
+                                }
+                            });
+                        }
+                        case "sneak" -> {
+                            
+                            client.execute(() -> {
+                                sneakToggle = !sneakToggle;
+                                if (!sneakToggle && client.options != null) {
+                                    client.options.sneakKey.setPressed(false);
+                                }
+                            });
+                        }
+                    }
+            	}
+            	
+            	if (swimMatcher.find()) {
+            		String cmd = swimMatcher.group(1).toLowerCase();
+    				
+    				client.execute(() -> {
+    					if (client.player != null) {
+    						if (cmd.equals("swim")) {
+    							client.options.jumpKey.setPressed(true);
+    						} else if (cmd.equals("dive")) {
+    							client.options.sneakKey.setPressed(true);
+    						}
+    					}
+    				});
+            	}
+            	
+            	if (resetMatcher.find()) {
+    				// Reset all queued actions and states
+    				queuedBreakBlocks = 0;
+    				queuedPlaceBlocks = 0;
+    				breakingPos = null;
+    				breakingSide = null;
+    				moveDistanceRemaining = 0.0;
+    				moveDirection = -1;
+    				prevPos = null;
+    				moveStuckTicks = 0;
+    				useTicksRemaining = 0;
+    				// toggle states
+    				sprintToggle = false;
+    				sneakToggle = false;
+    				
+    				// Also release all movement keys immediately
+    				
+    				client.execute(() -> {
+    					if (client.options != null) {
+    						releaseMovementKeys(client.options);
+    						client.options.sprintKey.setPressed(false);
+    						client.options.sneakKey.setPressed(false);
+    					}
+    					// Stop sprinting as well
+    					if (client.player != null) {
+    						client.player.setSprinting(false);
+    					}
+    				});
+    				
+    				System.out.println("Reset all queued actions and states");
+    			}
+            	
+            	if (lookMatcher.find()) {
+            		String cmd = lookMatcher.group(1).toLowerCase();
+    				String num = lookMatcher.group(2);
+    				
+    				switch (cmd) {
+    					case "lu", "look up" -> handleLook(MinecraftClient.getInstance(), num == null ? 5f : Float.parseFloat(num), 0);
+    					case "ld", "look down" -> handleLook(MinecraftClient.getInstance(), num == null ? 5f : Float.parseFloat(num), 1);
+    					case "ll", "look left" -> handleLook(MinecraftClient.getInstance(), num == null ? 5f : Float.parseFloat(num), 2);
+    					case "lr", "look right" -> handleLook(MinecraftClient.getInstance(), num == null ? 5f : Float.parseFloat(num), 3);
+    				}
+            	}
+            	
+            	if (clickMatcher.find()) {
+            		String cmd = clickMatcher.group(1).toLowerCase();
+    				String num = clickMatcher.group(2);
+    				int count = num == null ? 1 : Math.max(1, Math.round(Float.parseFloat(num)));
+    				switch (cmd) {
+    					case "rc", "right click" -> handleClick(MinecraftClient.getInstance(), count, true);
+    					case "lc", "left click" -> handleClick(MinecraftClient.getInstance(), count, false);
+    					case "dc", "double click" -> handleClick(MinecraftClient.getInstance(), Math.max(2, count), true);
+    				}
+    			}
+    			
+    			if (screenMatcher.find()) {
+    				String cmd = screenMatcher.group(1).toLowerCase();
+    				
+    				switch (cmd) {
+    					case "inv", "inventory" -> {
+    						
+    						client.execute(() -> {
+    							if (client.player != null && client.currentScreen == null) {
+    								client.setScreen(new net.minecraft.client.gui.screen.ingame.InventoryScreen(client.player));
+    							}
+    						});
+    					}
+    					case "close", "exit" -> {
+    						
+    						client.execute(() -> {
+    							if (client.currentScreen != null) {
+    								client.setScreen(null);
+    							}
+    						});
+    					}
+    				}
+            	}
+    			
+    			if (slotMatcher.find()) {
+    				System.out.println("Slot matcher found! Groups: " + slotMatcher.group(1) + ", " + slotMatcher.group(2) + ", " + slotMatcher.group(3));
+    				
+    				String num = slotMatcher.group(2);
+    				String cmd = slotMatcher.group(3);
+    				
+    				// Handle case where cmd might be null (just "slot X" without action)
+    				if (cmd == null) {
+    					cmd = "pickup"; // default action
+    				} else {
+    					cmd = cmd.toLowerCase();
+    				}
+    				
+    				// Create final variable for lambda
+    				final String finalCmd = cmd;
+    				
+    				System.out.println("Slot command: slot=" + num + ", action=" + finalCmd + ", screen=" + (client.currentScreen != null ? client.currentScreen.getClass().getSimpleName() : "null"));
+    				
+    				if (client.currentScreen == null) {
+    					if (num != null) {
+    						int slot = Integer.parseInt(num);
+    						if (slot >= 1 && slot <= 9) {
+    							System.out.println("Setting hotbar slot to: " + (slot - 1));
+    							client.execute(() -> {
+    								if (client.player != null) {
+    									client.player.getInventory().setSelectedSlot(slot - 1);
+    								}
+    							});
+    						}
+    					}
+    				}
+    				
+    				else {
+    					// If in a screen, try to click the slot in the GUI
+    					if (num != null) {
+    						int slot = Integer.parseInt(num);
+    						int slotIndex = slot - 1;
+    						
+    						System.out.println("Attempting slot interaction: slot=" + slotIndex + ", action=" + finalCmd);
+    						
+    						client.execute(() -> {
+    							if (client.interactionManager != null && client.player != null && client.currentScreen instanceof HandledScreen<?> handledScreen) {
+    								var screenHandler = handledScreen.getScreenHandler();
+    								
+    								System.out.println("Screen handler has " + screenHandler.slots.size() + " slots");
+    								
+    								// Validate slot index
+    								if (slotIndex >= 0 && slotIndex < screenHandler.slots.size()) {
+    									// Special handling: emulate vanilla double-click collect behavior
+    									if ("all".equals(finalCmd)) {
+    										doubleClickCollect(client, handledScreen, slotIndex);
+    											return;
+    									}
+    									
+    									net.minecraft.screen.slot.SlotActionType actionType;
+    									int button = 0;
+    									
+    									switch (finalCmd) {
+    										case "move" -> {
+    											actionType = net.minecraft.screen.slot.SlotActionType.QUICK_MOVE;
+    											button = 0;
+    										}
+    										case "craft" -> {
+    											actionType = net.minecraft.screen.slot.SlotActionType.QUICK_CRAFT;
+    											button = 0;
+    										}
+    										case "throw" -> {
+    											actionType = net.minecraft.screen.slot.SlotActionType.THROW;
+    											button = 0; // throw one item
+    										}
+    										default -> {
+    											actionType = net.minecraft.screen.slot.SlotActionType.PICKUP;
+    											button = 0; // left click
+    										}
+    									}
+    									
+    									System.out.println("Executing slot click: slot=" + slotIndex + ", button=" + button + ", action=" + actionType);
+    									
+    									// Use interaction manager to properly sync with server
+    									client.interactionManager.clickSlot(
+    										screenHandler.syncId,
+    										slotIndex,
+    										button,
+    										actionType,
+    										client.player
+    									);
+    								} else {
+    									System.out.println("Invalid slot index: " + slotIndex + " (max: " + (screenHandler.slots.size() - 1) + ")");
+    								}
+    							} else {
+    								System.out.println("Cannot interact with slot - missing requirements");
+    							}
+    						});
+    					}
+    				}
+    			}
+    			
+    			if (lockonMatcher.find()) {
+                    
+                    client.execute(() -> {
+                        String state = lockonMatcher.group(2).toLowerCase();
+                        if (state.equals("on")) {
+                            LockOnManager.setEnabled(true);
+                        } else if (state.equals("off")) {
+                            LockOnManager.setEnabled(false);
+                        }
+                        String entityType = lockonMatcher.group(3).toLowerCase();
+                        if (!entityType.isEmpty()) {
+                            LockOnManager.setEntityTypeKey(entityType);
+                        }
+                        // When enabling lock-on, auto-pick the nearest target so camera starts tracking immediately
+                        if (LockOnManager.isEnabled()) {
+                            LockOnManager.setTargetingCommand("nearest");
+                        }
+                    });
+                }
+    			
+    			if (targetMatcher.find()) {
+                    
+                    client.execute(() -> {
+                        String command = targetMatcher.group(2).toLowerCase();
+                        if (LockOnManager.isEnabled()) {
+                            LockOnManager.setTargetingCommand(command);
+                            System.out.println("Targeting command: " + command);
+                        } else {
+                            System.out.println("Lock-on is not enabled. Use 'lock on [entity_type]' first.");
+                        }
+                    });
+                }
+    			
+    			if (toggleMatcher.find()) {
+    				
+    				client.execute(() -> {
+    					String action = toggleMatcher.group(2).toLowerCase();
+    					switch (action) {
+    						case "attack", "break" -> {
+    							// Toggle breaking mode: if queued, stop; if not, start queuing indefinitely
+    							if (queuedBreakBlocks > 0) {
+    								queuedBreakBlocks = 0;
+    							} else {
+    								queuedBreakBlocks = Integer.MAX_VALUE; // effectively infinite until stopped
+    							}
+    						}
+    						case "place" -> {
+    							// Toggle placing mode similarly
+    							if (queuedPlaceBlocks > 0) {
+    								queuedPlaceBlocks = 0;
+    							} else {
+    								queuedPlaceBlocks = Integer.MAX_VALUE;
+    							}
+    						}
+    					}
+    				});
+    			}
+    			
+    			// Handle recipe book search first
+                if (rbSearchMatcher.find()) {
+                    
+                    String query = rbSearchMatcher.group(1).trim();
+                    client.execute(() -> setRecipeBookSearch(client, query));
+                }
+
+                // Handle crafting commands: prefer index, then by-name, then quick
+                if (craftIndexMatcher.find()) {
+                    
+                    int idx = Integer.parseInt(craftIndexMatcher.group(1));
+                    boolean all = craftIndexMatcher.group(2) != null && craftIndexMatcher.group(2).equalsIgnoreCase("all") || (craftIndexMatcher.group(2) != null && craftIndexMatcher.group(2).equalsIgnoreCase("max"));
+                    client.execute(() -> handleCraftByIndex(client, idx, all));
+                } 
+            });
+    	});
+        
+
         String category = "category." + ChatPlaysMcMod.MOD_ID + ".controls";
 
         // Drive queued interactions each tick on the client thread

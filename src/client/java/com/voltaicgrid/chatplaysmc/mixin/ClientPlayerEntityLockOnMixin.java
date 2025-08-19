@@ -44,7 +44,7 @@ public abstract class ClientPlayerEntityLockOnMixin {
    private static final int chat_plays_mc$CACHE_UPDATE_INTERVAL = 20;
 
    @Inject(
-      method = {"tick"},
+      method = {"tickMovement"},
       at = {@At("TAIL")}
    )
    private void chat_plays_mc$lockOnTick(CallbackInfo ci) {

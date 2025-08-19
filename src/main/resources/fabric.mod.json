@@ -11,6 +11,7 @@
   "license": "MIT",
   "icon": "assets/chat_plays_mc/icon.png",
   "environment": "*",
+	"accessWidener": "chat_plays_mc.accesswidener",
   "entrypoints": {
     "main": [
       "com.voltaicgrid.chatplaysmc.ChatPlaysMcMod"
@@ -28,6 +29,7 @@
       ">=1.21",
       "<1.22"
     ],
+		"fabric": "*",
     "java": ">=21"
   },
   "suggests": {

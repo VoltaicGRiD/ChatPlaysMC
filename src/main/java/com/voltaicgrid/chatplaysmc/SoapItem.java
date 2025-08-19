@@ -23,6 +23,6 @@ public class SoapItem extends Item {
 //		});
 		
 		super.finishUsing(item, world, user);
-		return new ItemStack(ModItems.BittenSoap);
+		return new ItemStack(ModItems.BITTEN_SOAP); // Return a bitten soap after using the soap
 	}
 }

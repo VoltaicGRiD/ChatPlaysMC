@@ -1,0 +1,88 @@
+plugins {
+	id 'fabric-loom' version "${loom_version}"
+	id 'maven-publish'
+}
+
+version = "1.0.0"
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+	maven { url = 'https://maven.terraformersmc.com/'}
+	maven { url = 'https://maven.wispforest.io/releases/'}
+	maven { url = "https://maven.awakenedredstone.com"}
+}
+
+loom {
+  splitEnvironmentSourceSets()
+	accessWidenerPath = file('src/main/resources/chat_plays_mc.accesswidener')
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${minecraft_version}"
+	mappings "net.fabricmc:yarn:${project.minecraft_version}+${yarn_version}:v2"
+	modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+
+//	modImplementation "com.terraformersmc:modmenu:${project.modmenu_version}"
+//	annotationProcessor modImplementation("io.wispforest:owo-lib:${project.owo_config_version}")
+//	include("io.wispforest:owo-sentinel:${project.owo_config_version}")
+
+	modImplementation("com.github.twitch4j:twitch4j-fabric:${twitch4j_version}")
+}
+
+tasks.withType(JavaCompile).configureEach {
+	// ensure that the encoding is set to UTF-8, no matter what the system default is
+	// this fixes some edge cases with special characters not displaying correctly
+	// see http://yodaconditions.net/blog/fix-for-java-file-encoding-problems-with-gradle.html
+	// If Javadoc is generated, this must be specified in that task too.
+	it.options.encoding = "UTF-8"
+
+	// Minecraft now uses Java 21.
+	it.options.release = 21
+}
+
+java {
+	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
+	// if it is present.
+	// If you remove this line, sources will not be generated.
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
+
+jar {
+	from("LICENSE") {
+		rename { "${it}_${project.archivesBaseName}"}
+	}
+}
+
+tasks.jar {
+    // Include BOTH source sets so Fabric can find your client entrypoint
+    from(sourceSets.main.output)
+    from(sourceSets.client.output)
+
+    // If you share resources between main/client, avoid duplicate errors
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// configure the maven publication
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+			from components.java
+		}
+	}
+
+	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+	repositories {
+		// Add repositories to publish to here.
+		// Notice: This block does NOT have the same function as the block in the top level.
+		// The repositories here will be used for publishing your artifact, not for
+		// retrieving dependencies.
+	}
+}
