@@ -1,0 +1,7 @@
+Note: This is a placeholder for the GUI texture. You'll need to create a proper 176x166 pixel PNG file for the food satchel GUI.
+The texture should include:
+- A 3x3 grid of 18x18 pixel slots starting at position (62, 17)
+- Player inventory slots (9x4 grid) starting at position (8, 84)
+- A background that matches Minecraft's GUI style
+
+For now, you can copy an existing GUI texture from Minecraft (like the chest GUI) and modify it as needed.

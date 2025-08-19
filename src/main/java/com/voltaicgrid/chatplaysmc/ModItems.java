@@ -10,6 +10,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.equipment.*;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.Identifier;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.ComponentMap;
 
 import java.util.function.Function;
 
@@ -17,17 +19,47 @@ public class ModItems {
 	public static Item ORIO;	
     public static Item SOAP;
     public static Item BITTEN_SOAP;
-    public static Item PLOHT_HELMET;
+    public static Item FOOD_SATCHEL;
 	
 	public static void initialize() {
 	}
 	
     public static void register() {
-        ORIO = registerItem("orio", new Item(new Item.Settings().maxCount(16).food(new FoodComponent.Builder().nutrition(6).saturationModifier(0.5f).build())));
-        SOAP = registerItem("soap", new SoapItem(new Item.Settings().maxCount(16).food(POISON_FOOD_COMPONENT, POISON_FOOD_CONSUMABLE_COMPONENT)));
-        BITTEN_SOAP = registerItem("bitten_soap", new SoapItem(new Item.Settings().maxCount(16).food(POISON_FOOD_COMPONENT, POISON_FOOD_CONSUMABLE_COMPONENT)));
-        PLOHT_HELMET = registerItem("ploht_helmet",
-            new Item(new Item.Settings().maxDamage(EquipmentType.HELMET.getMaxDamage(PlohtArmorMaterial.BASE_DURABILITY)).armor(PlohtArmorMaterial.INSTANCE, EquipmentType.HELMET)));
+        // Create food components first, without any complex dependencies
+        FoodComponent simplePoisonFood = new FoodComponent.Builder()
+            .alwaysEdible()
+            .build();
+            
+        ConsumableComponent simplePoisonConsumable = ConsumableComponents.food()
+            .consumeEffect(new ApplyEffectsConsumeEffect(new StatusEffectInstance(StatusEffects.POISON, 6 * 20, 2), 1.0f))
+            .consumeEffect(new ApplyEffectsConsumeEffect(new StatusEffectInstance(StatusEffects.NAUSEA, 6 * 20, 0), 1.0f))
+            .consumeEffect(new ApplyEffectsConsumeEffect(new StatusEffectInstance(StatusEffects.HUNGER, 30 * 20, 1), 1.0f))
+            .consumeEffect(new ApplyEffectsConsumeEffect(new StatusEffectInstance(StatusEffects.WATER_BREATHING, 60 * 20, 1), 1.0f))
+            .consumeEffect(new ApplyEffectsConsumeEffect(new StatusEffectInstance(StatusEffects.LEVITATION, 5 * 20, 1), 1.0f))
+            .build();
+        
+        ORIO = registerItem("orio", new Item(new Item.Settings()
+        		.maxCount(16)
+        		.food(new FoodComponent
+        				.Builder()
+        				.nutrition(6)
+        				.saturationModifier(0.5f)
+        				.build())
+        		.registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(ChatPlaysMcMod.MOD_ID, "orio")))));
+        SOAP = registerItem("soap", new SoapItem(new Item.Settings()
+        		.maxCount(16)
+        		.food(simplePoisonFood, simplePoisonConsumable)
+        		.registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(ChatPlaysMcMod.MOD_ID, "soap")))));
+        BITTEN_SOAP = registerItem("bitten_soap", new SoapItem(new Item.Settings()
+        		.maxCount(16)
+        		.food(simplePoisonFood, simplePoisonConsumable)
+        		.registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(ChatPlaysMcMod.MOD_ID, "bitten_soap")))));
+        FOOD_SATCHEL = registerItem("food_satchel", new FoodSatchelItem(new Item.Settings()
+        		.maxCount(1)
+        		.component(DataComponentTypes.CONTAINER, ContainerComponent.fromStacks(java.util.List.of(ItemStack.EMPTY, ItemStack.EMPTY, ItemStack.EMPTY)))
+        		.registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(ChatPlaysMcMod.MOD_ID, "food_satchel")))));
+//        PLOHT_HELMET = registerItem("ploht_helmet",
+//            new Item(new Item.Settings().maxDamage(EquipmentType.HELMET.getMaxDamage(PlohtArmorMaterial.BASE_DURABILITY)).armor(PlohtArmorMaterial.INSTANCE, EquipmentType.HELMET)));
         // repeat for other items…
     }
 
@@ -35,6 +67,7 @@ public class ModItems {
         return Registry.register(Registries.ITEM, Identifier.of(ChatPlaysMcMod.MOD_ID, name), item);
     }
 	
+	// Keep these as constants but don't use them in registration to avoid circular dependencies
 	public static final ConsumableComponent POISON_FOOD_CONSUMABLE_COMPONENT = ConsumableComponents.food()
 			// The duration is in ticks, 20 ticks = 1 second
 			.consumeEffect(new ApplyEffectsConsumeEffect(new StatusEffectInstance(StatusEffects.POISON, 6 * 20, 2), 1.0f))

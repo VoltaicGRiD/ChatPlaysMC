@@ -11,8 +11,11 @@ public class ChatPlaysMcMod implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        LOGGER.info("{} initialized!", MOD_ID);
+        LOGGER.info("Initializing Chat Plays MC mod");
         
-        ModItems.initialize();
+        // Register items
+        ModItems.register();
+
+        LOGGER.info("Chat Plays MC mod initialized successfully");
     }
 }

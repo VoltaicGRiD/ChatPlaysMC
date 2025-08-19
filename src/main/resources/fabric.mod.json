@@ -21,7 +21,8 @@
     ]
   },
   "mixins": [
-    "chat_plays_mc.mixins.json"
+    "chat_plays_mc.mixins.json",
+    "chat_plays_mc.client.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=0.16.2",

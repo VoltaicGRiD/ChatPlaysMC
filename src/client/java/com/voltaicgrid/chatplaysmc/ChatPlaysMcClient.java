@@ -43,6 +43,13 @@ import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.component.type.ContainerComponent;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.block.Block;
+import net.minecraft.block.Blocks;
+import net.minecraft.fluid.FluidState;
+import net.minecraft.fluid.Fluids;
+import net.minecraft.registry.tag.FluidTags;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import java.util.List;
 import java.util.Optional;
@@ -83,12 +90,15 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     // Toggle states for sprint/sneak
     private static boolean sprintToggle = false;
     private static boolean sneakToggle = false;
+    private static boolean isSwimming = false;
+    private static int swimExitBuffer = 0; // Buffer to prevent immediate swim cancellation
 
     public static final String MODID = "chat_plays_mc";
     
     @Override
-    public void onInitializeClient() {       
-   	
+    public void onInitializeClient() {
+        // Register the food satchel screen
+        
         ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
         	
         	twitchClient = TwitchClientBuilder.builder()
@@ -275,11 +285,37 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     				
     				client.execute(() -> {
     					if (client.player != null) {
-    						if (cmd.equals("swim")) {
-    							client.options.jumpKey.setPressed(true);
-    						} else if (cmd.equals("dive")) {
-    							client.options.sneakKey.setPressed(true);
-    						}
+    					    var player = client.player;
+
+    					    // Detect if we're actually in water/lava (flowing or still)
+    					    boolean inWater = player.isTouchingWater() || player.isSubmergedIn(FluidTags.WATER);
+    					    boolean inLava  = player.isInLava() || player.isSubmergedIn(FluidTags.LAVA);
+    					    boolean inFluid = inWater || inLava;
+
+    					    var jump  = client.options.jumpKey;
+    					    var sneak = client.options.sneakKey;
+
+    					    if ("swim".equals(cmd)) {
+    					        if (inFluid) {
+    					        	isSwimming = true;
+    					            jump.setPressed(true);
+    					            sneak.setPressed(false);
+    					        } else {
+    					        	isSwimming = false;
+    					            jump.setPressed(false);
+    					            sneak.setPressed(false);
+    					        }
+    					    } else if ("dive".equals(cmd)) {
+    					        if (inFluid) {
+    					        	isSwimming = true;
+    					            sneak.setPressed(true);
+    					            jump.setPressed(false);
+    					        } else {
+    					        	isSwimming = false;
+    					            sneak.setPressed(false);
+    					            jump.setPressed(false);
+    					        }
+    					    }
     					}
     				});
             	}
@@ -493,29 +529,29 @@ public class ChatPlaysMcClient implements ClientModInitializer {
                 }
     			
     			if (toggleMatcher.find()) {
-    				
-    				client.execute(() -> {
-    					String action = toggleMatcher.group(2).toLowerCase();
-    					switch (action) {
-    						case "attack", "break" -> {
-    							// Toggle breaking mode: if queued, stop; if not, start queuing indefinitely
-    							if (queuedBreakBlocks > 0) {
-    								queuedBreakBlocks = 0;
-    							} else {
-    								queuedBreakBlocks = Integer.MAX_VALUE; // effectively infinite until stopped
-    							}
-    						}
-    						case "place" -> {
-    							// Toggle placing mode similarly
-    							if (queuedPlaceBlocks > 0) {
-    								queuedPlaceBlocks = 0;
-    							} else {
-    								queuedPlaceBlocks = Integer.MAX_VALUE;
-    							}
-    						}
-    					}
-    				});
-    			}
+				
+				client.execute(() -> {
+					String action = toggleMatcher.group(2).toLowerCase();
+					switch (action) {
+						case "attack", "break" -> {
+							// Toggle breaking mode: if queued, stop; if not, start queuing indefinitely
+							if (queuedBreakBlocks > 0) {
+								queuedBreakBlocks = 0;
+							} else {
+								queuedBreakBlocks = Integer.MAX_VALUE; // effectively infinite until stopped
+							}
+						}
+						case "place" -> {
+							// Toggle placing mode similarly
+							if (queuedPlaceBlocks > 0) {
+								queuedPlaceBlocks = 0;
+							} else {
+								queuedPlaceBlocks = Integer.MAX_VALUE;
+							}
+						}
+					}
+				});
+			}
     			
     			// Handle recipe book search first
                 if (rbSearchMatcher.find()) {
@@ -565,6 +601,32 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     }
 
     private void onClientTick(MinecraftClient client) {
+    	if (isSwimming) {
+    		var player = client.player;
+    		
+    		// Check if player is actually touching water or lava using proper fluid detection
+    		boolean inWater = player.isTouchingWater() || player.isSubmergedIn(FluidTags.WATER);
+    		boolean inLava = player.isInLava() || player.isSubmergedIn(FluidTags.LAVA);
+    		boolean inFluid = inWater || inLava;
+    		
+    		if (inFluid) {
+				// Player is in fluid - reset the exit buffer and keep swimming
+				swimExitBuffer = 0;
+				// The jump/sneak keys are already set from the initial swim/dive command
+			} else {
+				// Player is not in fluid - start counting exit buffer
+				swimExitBuffer++;
+				// Only stop swimming after being out of water for 10 ticks (0.5 seconds)
+				if (swimExitBuffer >= 10) {
+					isSwimming = false;
+					client.options.jumpKey.setPressed(false);
+					client.options.sneakKey.setPressed(false);
+					swimExitBuffer = 0;
+				}
+				// Otherwise keep swimming - this handles brief bobbing out of water
+			}
+    	}
+    	
         if (client.player == null || client.interactionManager == null || client.world == null) return;
 
         // Apply sprint/sneak toggles every tick
@@ -1038,6 +1100,11 @@ public class ChatPlaysMcClient implements ClientModInitializer {
             y += lineHeight;
         }
         
+        if (isSwimming) {
+			context.drawText(textRenderer, "Swimming", 15, y, 0xFF55FFFF, true);
+			y += lineHeight;
+		}
+        
         // Building status
         if (buildingTower) {
         	context.drawText(textRenderer, "Building Tower", 15, y, 0xFFFF8855, true);
@@ -1064,44 +1131,24 @@ public class ChatPlaysMcClient implements ClientModInitializer {
         ItemStack mainHand = client.player.getMainHandStack();
         if (!mainHand.isEmpty()) {
             String itemText = mainHand.getItem().getName().getString() + " x" + mainHand.getCount();
+            
+            // Add durability as percentage if item is damageable
+            if (mainHand.getMaxDamage() > 0) {
+                int currentDurability = mainHand.getMaxDamage() - mainHand.getDamage();
+                double durabilityPercent = (double) currentDurability / mainHand.getMaxDamage() * 100.0;
+                itemText += String.format(" (%.1f%%)", durabilityPercent);
+            }
+            
             context.drawText(textRenderer, itemText, 15, y, 0xFFAAAAAA, true);
+            
+            // Check if this is the food satchel using the registry identifier
+            var itemId = Registries.ITEM.getId(mainHand.getItem());
+            if (itemId.toString().equals("chat_plays_mc:foot_satchel")) { 
+        		ContainerComponent container = mainHand.get(DataComponentTypes.CONTAINER);
+        		if (container != null) {
+					context.drawText(textRenderer, "Contains: " + container.stream().count() + " items", 15, y + lineHeight, 0xFFAAAAAA, true);
+				}
+            }
         }
     }
-    
-//    private void trackCameraToTarget(MinecraftClient client, float yawSpeed, float pitchSpeed) {
-//        ClientPlayerEntity player = client.player;
-//        if (player == null) return;
-//
-//        Entity target = LockOnManager.getCurrentTarget((ClientWorld) player.getWorld());
-//        if (target == null || target.isRemoved()) return;
-//
-//        Vec3d eyePos = player.getEyePos();
-//        Vec3d tPos;
-//        if (target instanceof LivingEntity le) {
-//            tPos = le.getPos().add(0.0, le.getStandingEyeHeight(), 0.0);
-//        } else {
-//            tPos = target.getPos().add(0.0, Math.max(0.0f, target.getHeight() * 0.5f), 0.0);
-//        }
-//        Vec3d diff = tPos.subtract(eyePos);
-//        double horiz = Math.hypot(diff.x, diff.z);
-//
-//        float desiredYaw = (float) Math.toDegrees(Math.atan2(-diff.x, diff.z));
-//        float desiredPitch = (float) Math.toDegrees(-Math.atan2(diff.y, horiz));
-//        float curYaw = player.getYaw();
-//        float curPitch = player.getPitch();
-//
-//        float newYaw = approachAngle(curYaw, desiredYaw, yawSpeed);
-//        float newPitch = approachAngle(curPitch, desiredPitch, pitchSpeed);
-//
-//        player.setYaw(newYaw);
-//        player.setPitch(MathHelper.clamp(newPitch, -90.0f, 90.0f));
-//    }
-//
-//    private static float approachAngle(float current, float target, float speed) {
-//        float delta = MathHelper.subtractAngles(target, current);
-//        float maxStep = speed;
-//        if (delta > maxStep) delta = maxStep;
-//        else if (delta < -maxStep) delta = -maxStep;
-//        return current + delta;
-//    }
 }
