@@ -52,6 +52,7 @@ import net.minecraft.fluid.Fluids;
 import net.minecraft.registry.tag.FluidTags;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import net.minecraft.screen.AbstractFurnaceScreenHandler;
 import com.voltaicgrid.chatplaysmc.client.LockOnManager;
@@ -82,8 +83,8 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     private static boolean buildingShaft = false;
     private static int brokenBlockIndex = 0; // for buildingMine
 
-    private static double moveDistanceRemaining = 0.0;
-    private static int moveDirection = -1; // 0 fwd, 1 back, 2 left, 3 right
+    // Movement tracking: 0=forward, 1=backward, 2=left, 3=right
+    private static double[] moveDistanceRemaining = new double[4]; // distance left for each direction
     private static Vec3d prevPos = null;
     private static int moveStuckTicks = 0;
     private static int useTicksRemaining = 0;
@@ -92,6 +93,14 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     private static boolean sneakToggle = false;
     private static boolean isSwimming = false;
     private static int swimExitBuffer = 0; // Buffer to prevent immediate swim cancellation
+
+    //private static Map<String, Boolean> objectives = new HashMap<>(); // Track objectives and their completion state
+    
+    // Camera lerp variables for smooth movement
+    private static float targetYaw = 0.0f;
+    private static float targetPitch = 0.0f;
+    private static boolean isLerping = false;
+    private static final float LERP_SPEED = 0.15f; // Adjust this value to control smoothness (0.1 = slower, 0.3 = faster)
 
     public static final String MODID = "chat_plays_mc";
     
@@ -108,11 +117,46 @@ public class ChatPlaysMcClient implements ClientModInitializer {
         	twitchClient.getChat().joinChannel("oridont");
 
         	twitchClient.getEventManager().onEvent(ChannelMessageEvent.class, event -> {
+//        		boolean isModerator = event.getUser().isModerator() || event.getUser().isBroadcaster();
+//        		
+//        		final Matcher objectiveMatcher = Pattern.compile("\\b(obj|objective)\\s+(complete|add)\\s*(\\w+)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+//        		if (objectiveMatcher.find()) {
+//					String action = objectiveMatcher.group(2).toLowerCase();
+//					String objectiveName = objectiveMatcher.group(3);
+//					
+//					if (action.equals("add")) {
+//						// Handle addition of an objective
+//						if (objectiveName != null && !objectiveName.isEmpty()) {
+//							System.out.println("Objective added: " + objectiveName);
+//							objectives.put(objectiveName.toLowerCase(Locale.ROOT), false);
+//						} else {
+//							System.out.println("Invalid objective name provided for addition.");
+//						}
+//					} else if (!isModerator) {
+//						System.out.println("Only moderators can complete objectives.");
+//						return;
+//					} else if (objectiveName == null || objectiveName.isEmpty()) {
+//						System.out.println("No objective name provided for completion.");
+//						return;
+//					}
+//					
+//					if (action.equals("complete")) {
+//						// Handle completion of an objective
+//						if (objectiveName != null && !objectiveName.isEmpty()) {
+//							System.out.println("Objective completed: " + objectiveName);
+//							objectives.put(objectiveName.toLowerCase(Locale.ROOT), true);
+//						} else {
+//							System.out.println("Invalid objective name provided for completion.");
+//						}
+//					}
+//        		}
+
+        		
                 final Matcher movementMatcher = Pattern.compile("\\b(w|s|a|d|forward|backward|left|right|jump|sprint|sneak)\\s*(\\d+(?:\\.\\d+)?)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher lookMatcher = Pattern.compile("\\b(lu|ld|ll|lr|look\\s+up|look\\s+down|look\\s+left|look\\s+right)\\s*(\\d+(?:\\.\\d+)?)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher clickMatcher = Pattern.compile("\\b(rc|lc|dc|right\\s+click|left\\s+click|double\\s*click)\\s*(\\d+(?:\\.\\d+)?)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher screenMatcher = Pattern.compile("\\b(inv|inventory|close|exit)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-                final Matcher slotMatcher = Pattern.compile("\\b(slot)\\s*(\\d+)\\s*(all|move|craft|throw)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher slotMatcher = Pattern.compile("\\b(slot)\\s*(\\d+)\\s*(all|move|craft|throw|one)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher lockonMatcher = Pattern.compile("\\b(lock)\\s*(on|off)\\s*(\\w*)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher targetMatcher = Pattern.compile("\\b(target|lock)\\s*(next|previous|prev|nearest)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher toggleMatcher = Pattern.compile("\\b(toggle)\\s*(attack|break|place)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
@@ -136,11 +180,19 @@ public class ChatPlaysMcClient implements ClientModInitializer {
                 		// Start building a tower: queue placing blocks while looking straight down
     					client.execute(() -> {
     						if (client.player != null) {
-    							// Look straight down
-    							client.player.setPitch(90.0f);
-    							// Start moving up and queue placing blocks
+//    							// Check if player has a placeable block in hand
+//    							ItemStack mainHand = client.player.getMainHandStack();
+//    							if (mainHand.isEmpty() || !(mainHand.getItem() instanceof net.minecraft.item.BlockItem)) {
+//    								System.out.println("Cannot build tower: No block in hand. Please hold a block item.");
+//    								return;
+//    							}
+//    							
+//    							// Look straight down
+//    							client.player.setPitch(90.0f);
+//    							// Start moving up and queue placing blocks
     							queuedPlaceBlocks = count;
     							buildingTower = true;
+    							System.out.println("Building tower with " + count + " blocks using " + mainHand.getItem().getName().getString());
     						}
     					});
     				} else if (cmd.equals("bridge")) {
@@ -198,18 +250,6 @@ public class ChatPlaysMcClient implements ClientModInitializer {
                 	String cmd = extraMatcher.group(1).toLowerCase();
 
                 	if (cmd.equals("f3")) {
-//        				client.execute(() -> {
-//        					if (client.options != null) {
-//        						client.options.debugKey.setPressed(true);
-//        						// Release after a short delay to simulate key press
-//        						try {
-//        							Thread.sleep(50);
-//        						} catch (InterruptedException e) {
-//        							// Ignore
-//        						}
-//        						client.options.debugKey.setPressed(false);
-//        					}
-//        				});
     				} else if (cmd.equals("swap")) {
     					// Swap main/off hand
     					client.execute(() -> {
@@ -225,20 +265,6 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     					});
     					System.out.println("Swapping main/off hand");
                 	} 
-//    				else if (cmd.equals("fov") {
-//    					String num = extraMatcher.group(2);
-//    					if (num != null) {
-//    						int fovChange = Integer.parseInt(num);
-//    						client.execute(() -> {
-//    							if (client.options != null) {
-//    								float newFov = fovChange;
-//    								newFov = MathHelper.clamp(newFov, 30.0f, 110.0f);
-//    								client.options.GameOptions.fov = newFov;
-//    								System.out.println("Set FOV to: " + newFov);
-//    							}
-//    						});
-//    					}
-//                	}
                 }
                 
             	if (movementMatcher.find()) {
@@ -326,9 +352,10 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     				queuedPlaceBlocks = 0;
     				breakingPos = null;
     				breakingSide = null;
-    				moveDistanceRemaining = 0.0;
-    				moveDirection = -1;
-    				prevPos = null;
+    				moveDistanceRemaining[0] = 0.0;
+    				moveDistanceRemaining[1] = 0.0;
+    				moveDistanceRemaining[2] = 0.0;
+    				moveDistanceRemaining[3] = 0.0;
     				moveStuckTicks = 0;
     				useTicksRemaining = 0;
     				// toggle states
@@ -463,6 +490,10 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     										case "craft" -> {
     											actionType = net.minecraft.screen.slot.SlotActionType.QUICK_CRAFT;
     											button = 0;
+    										}
+    										case "one" -> {
+    											actionType = net.minecraft.screen.slot.SlotActionType.PICKUP;
+    											button = 1; // right click: take half stack or place one item
     										}
     										case "throw" -> {
     											actionType = net.minecraft.screen.slot.SlotActionType.THROW;
@@ -629,16 +660,42 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     	
         if (client.player == null || client.interactionManager == null || client.world == null) return;
 
+        // Handle smooth camera interpolation
+        if (isLerping && client.player != null) {
+            float currentYaw = client.player.getYaw();
+            float currentPitch = client.player.getPitch();
+            
+            // Calculate the difference between current and target
+            float yawDiff = MathHelper.wrapDegrees(targetYaw - currentYaw);
+            float pitchDiff = targetPitch - currentPitch;
+            
+            // Apply lerp with the configured speed
+            float newYaw = currentYaw + yawDiff * LERP_SPEED;
+            float newPitch = currentPitch + pitchDiff * LERP_SPEED;
+            
+            // Set the new rotation
+            client.player.setYaw(newYaw);
+            client.player.setPitch(newPitch);
+            
+            // Check if we're close enough to the target to stop lerping
+            if (Math.abs(yawDiff) < 0.1f && Math.abs(pitchDiff) < 0.1f) {
+                // Snap to exact target and stop lerping
+                client.player.setYaw(targetYaw);
+                client.player.setPitch(targetPitch);
+                isLerping = false;
+            }
+        }
+
+        // Update lock-on targeting
+        if (LockOnManager.isEnabled()) {
+            LockOnManager.updateTargeting(client.world, client.player);
+        }
+
         // Apply sprint/sneak toggles every tick
         if (client.options != null) {
             client.options.sprintKey.setPressed(sprintToggle);
             client.options.sneakKey.setPressed(sneakToggle);
         }
-
-//        // Track camera toward current lock-on target (if any)
-//        if (LockOnManager.isEnabled()) {
-//            trackCameraToTarget(client, 30.0f, 30.0f);
-//        }
 
         // Process breaking first to feel responsive
         if (queuedBreakBlocks > 0) {
@@ -743,26 +800,14 @@ public class ChatPlaysMcClient implements ClientModInitializer {
 			// While building a tower, keep looking down and moving up
 			if (client.player != null) {
 				client.player.setPitch(90.0f); // look straight down
-				client.player.setVelocity(client.player.getVelocity().x, 0.3, client.player.getVelocity().z); // move up
+				client.player.setVelocity(client.player.getVelocity().x, 0.3, client.player.getVelocity().z); // move up at 0.3 blocks per tick
 			}
 		} else if (buildingTower) {
 			// Finished building tower
 			buildingTower = false;
 			if (client.player != null) {
-				client.player.setVelocity(client.player.getVelocity().x, 0.0, client.player.getVelocity().z); // stop vertical movement
+				client.player.setVelocity(client.player.getVelocity().x, 0.0, client.player.getVelocity().z); // stop moving up
 			}
-		} else if (queuedPlaceBlocks > 0 && buildingBridge) {
-			// While building a bridge, keep moving forward slowly
-			handleMove(client, 0.2f, 0); // move forward slowly
-		} else if (buildingBridge) {
-			// Finished building bridge
-			buildingBridge = false;
-			// Stop movement
-			releaseMovementKeys(client.options);
-			moveDirection = -1;
-			moveDistanceRemaining = 0;
-			prevPos = null;
-			moveStuckTicks = 0;
 		} 
         
         if (queuedPlaceBlocks > 0 && useTicksRemaining == 0) {
@@ -772,14 +817,27 @@ public class ChatPlaysMcClient implements ClientModInitializer {
         }
 	
         // Handle queued movement with real input so AutoJump works
-        if (moveDirection != -1 && moveDistanceRemaining > 0) {
-            GameOptions opts = client.options;
-            switch (moveDirection) {
-                case 0 -> opts.forwardKey.setPressed(true);
-                case 1 -> opts.backKey.setPressed(true);
-                case 2 -> opts.leftKey.setPressed(true);
-                case 3 -> opts.rightKey.setPressed(true);
+        boolean anyMovementActive = false;
+        for (int i = 0; i < 4; i++) {
+            if (moveDistanceRemaining[i] > 0) {
+                anyMovementActive = true;
+                break;
             }
+        }
+        
+        if (anyMovementActive) {
+            GameOptions opts = client.options;
+            // Set only the active movement keys, release the inactive ones
+            for (int i = 0; i < 4; i++) {
+                boolean shouldPress = moveDistanceRemaining[i] > 0;
+                switch (i) {
+                    case 0 -> opts.forwardKey.setPressed(shouldPress);
+                    case 1 -> opts.backKey.setPressed(shouldPress);
+                    case 2 -> opts.leftKey.setPressed(shouldPress);
+                    case 3 -> opts.rightKey.setPressed(shouldPress);
+                }
+            }
+            
             // Measure horizontal distance travelled this tick
             Vec3d cur = client.player.getPos();
             if (prevPos == null) prevPos = cur;
@@ -791,24 +849,36 @@ public class ChatPlaysMcClient implements ClientModInitializer {
             } else {
                 moveStuckTicks = 0;
             }
-            moveDistanceRemaining -= d;
+            
+            // Reduce distance remaining for all active directions
+            for (int i = 0; i < 4; i++) {
+                if (moveDistanceRemaining[i] > 0) {
+                    moveDistanceRemaining[i] -= d;
+                    if (moveDistanceRemaining[i] <= 0) {
+                        moveDistanceRemaining[i] = 0;
+                        // Individual key will be released in the next tick by the key setting loop above
+                    }
+                }
+            }
             prevPos = cur;
 
-            // Stop if done or stuck for ~0.5s (10 ticks)
-            if (moveDistanceRemaining <= 0 || moveStuckTicks > 10) {
+            // Stop if all movements done or stuck for ~0.5s (10 ticks)
+            boolean allDone = true;
+            for (int i = 0; i < 4; i++) {
+                if (moveDistanceRemaining[i] > 0) {
+                    allDone = false;
+                    break;
+                }
+            }
+            
+            if (allDone || moveStuckTicks > 10) {
                 releaseMovementKeys(opts);
-                moveDirection = -1;
-                moveDistanceRemaining = 0;
+                for (int i = 0; i < 4; i++) {
+                    moveDistanceRemaining[i] = 0;
+                }
                 prevPos = null;
                 moveStuckTicks = 0;
             }
-        } else {
-            // Ensure keys are released if not moving
-            releaseMovementKeys(client.options);
-            moveDirection = -1;
-            moveDistanceRemaining = 0;
-            prevPos = null;
-            moveStuckTicks = 0;
         }
     }
 
@@ -899,8 +969,7 @@ public class ChatPlaysMcClient implements ClientModInitializer {
 
     private void handleMove(MinecraftClient client, float distance, int direction) {
         if (client.player == null) return;
-        moveDirection = direction;
-        moveDistanceRemaining = Math.max(0, distance);
+        moveDistanceRemaining[direction] = Math.max(0, distance);
         prevPos = client.player.getPos();
         moveStuckTicks = 0;
     }
@@ -908,21 +977,26 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     private void handleLook(MinecraftClient client, float step, int direction) {
 		if (client.player == null) return;
 
-		float yaw = client.player.getYaw();
-		float pitch = client.player.getPitch();
+		// Calculate target rotation based on current values
+		float currentYaw = client.player.getYaw();
+		float currentPitch = client.player.getPitch();
 
 		if (direction == 0) { // up
-			pitch = MathHelper.clamp(pitch - step, -90.0f, 90.0f);
+			targetPitch = MathHelper.clamp(currentPitch - step, -90.0f, 90.0f);
+			targetYaw = currentYaw; // Keep current yaw
 		} else if (direction == 1) { // down
-			pitch = MathHelper.clamp(pitch + step, -90.0f, 90.0f);
+			targetPitch = MathHelper.clamp(currentPitch + step, -90.0f, 90.0f);
+			targetYaw = currentYaw; // Keep current yaw
 		} else if (direction == 2) { // left
-			yaw -= step;
+			targetYaw = currentYaw - step;
+			targetPitch = currentPitch; // Keep current pitch
 		} else if (direction == 3) { // right
-			yaw += step;
+			targetYaw = currentYaw + step;
+			targetPitch = currentPitch; // Keep current pitch
 		}
 
-		client.player.setYaw(yaw);
-		client.player.setPitch(pitch);
+		// Start lerping to the new target
+		isLerping = true;
 	}
 
     private void renderSlotIndices(HandledScreen<?> handled, DrawContext context) {
@@ -1053,101 +1127,192 @@ public class ChatPlaysMcClient implements ClientModInitializer {
         if (client.player == null || client.options.hudHidden) return;
         
         var textRenderer = client.textRenderer;
-        int screenWidth = client.getWindow().getScaledWidth();
-        int y = 10; // Start from top of screen
-        int lineHeight = 12;
+        int y = 5; // Start closer to top
+        int lineHeight = 10; // Reduced line height
         
-        // Background for better readability
-        int hudWidth = 200;
-        int hudHeight = 120;
-        context.fill(10, 5, 10 + hudWidth, 5 + hudHeight, 0x80000000); // Semi-transparent black background
+        // Smaller background for better readability
+        int hudWidth = 180; // Reduced width
+        int hudHeight = 0; // Dynamic height based on content
+        int startY = y;
         
-        // Player coordinates
+        // Count lines first to determine background height
+        int lineCount = 0;
+        
+        // Player coordinates (more compact format)
         Vec3d pos = client.player.getPos();
-        String coordText = String.format("XYZ: %.1f, %.1f, %.1f", pos.x, pos.y, pos.z);
-        context.drawText(textRenderer, coordText, 15, y, 0xFFFFFFFF, true);
-        y += lineHeight;
+        String coordText = String.format("XYZ: %.1f %.1f %.1f", pos.x, pos.y, pos.z);
+        lineCount++;
         
-        // Player rotation
-        String rotText = String.format("Yaw: %.1f° Pitch: %.1f°", client.player.getYaw(), client.player.getPitch());
-        context.drawText(textRenderer, rotText, 15, y, 0xFFFFFFFF, true);
-        y += lineHeight;
+        // Player rotation (combined with coordinates if space allows)
+        String rotText = String.format("Y:%.1f° P:%.1f°", client.player.getYaw(), client.player.getPitch());
+        lineCount++;
         
-        // Current action queues
+        // Current action queues (compact format)
         if (queuedBreakBlocks > 0) {
-            String breakText = queuedBreakBlocks == Integer.MAX_VALUE ? "Breaking: ∞" : "Breaking: " + queuedBreakBlocks;
-            context.drawText(textRenderer, breakText, 15, y, 0xFFFF5555, true);
-            y += lineHeight;
+            lineCount++;
         }
-        
         if (queuedPlaceBlocks > 0) {
-            String placeText = queuedPlaceBlocks == Integer.MAX_VALUE ? "Placing: ∞" : "Placing: " + queuedPlaceBlocks;
-            context.drawText(textRenderer, placeText, 15, y, 0xFF55FF55, true);
-            y += lineHeight;
+            lineCount++;
         }
-        
         if (useTicksRemaining > 0) {
-            String useText = "Using: " + (useTicksRemaining / 20.0f) + "s";
-            context.drawText(textRenderer, useText, 15, y, 0xFF5555FF, true);
-            y += lineHeight;
+            lineCount++;
         }
         
-        // Movement status
-        if (moveDirection != -1 && moveDistanceRemaining > 0) {
-            String[] directions = {"Forward", "Backward", "Left", "Right"};
-            String moveText = directions[moveDirection] + ": " + String.format("%.2f", moveDistanceRemaining);
-            context.drawText(textRenderer, moveText, 15, y, 0xFFFFFF55, true);
-            y += lineHeight;
+        // Movement status (count active movements)
+        for (int i = 0; i < 4; i++) {
+            if (moveDistanceRemaining[i] > 0) {
+                lineCount++;
+            }
         }
         
+        // Swimming status
         if (isSwimming) {
-			context.drawText(textRenderer, "Swimming", 15, y, 0xFF55FFFF, true);
-			y += lineHeight;
-		}
+            lineCount++;
+        }
         
         // Building status
-        if (buildingTower) {
-        	context.drawText(textRenderer, "Building Tower", 15, y, 0xFFFF8855, true);
-            y += lineHeight;
-        } else if (buildingBridge) {
-        	context.drawText(textRenderer, "Building Bridge", 15, y, 0xFFFF8855, true);
-            y += lineHeight;
-        } else if (buildingMine) {
-			context.drawText(textRenderer, "Building Mine", 15, y, 0xFFFF8855, true);
-			y += lineHeight;
-		}
+        if (buildingTower || buildingBridge || buildingMine) {
+            lineCount++;
+        }
         
-        // Toggle states
+        // Toggle states (combine into one line)
         String toggles = "";
         if (sprintToggle) toggles += "Sprint ";
         if (sneakToggle) toggles += "Sneak ";
-        if (LockOnManager.isEnabled()) toggles += "Lock ";
         if (!toggles.isEmpty()) {
-        	context.drawText(textRenderer, "Active: " + toggles.trim(), 15, y, 0xFF55FFFF, true);
-            y += lineHeight;
+            lineCount++;
         }
         
         // Held item info
         ItemStack mainHand = client.player.getMainHandStack();
         if (!mainHand.isEmpty()) {
-            String itemText = mainHand.getItem().getName().getString() + " x" + mainHand.getCount();
+            lineCount++;
+            // Check if this is the food satchel
+            var itemId = Registries.ITEM.getId(mainHand.getItem());
+            if (itemId.toString().equals("chat_plays_mc:foot_satchel")) { 
+                ContainerComponent container = mainHand.get(DataComponentTypes.CONTAINER);
+                if (container != null) {
+                    lineCount++;
+                }
+            }
+        }
+        
+        if (LockOnManager.isEnabled()) {
+			Entity currentTarget = LockOnManager.getCurrentTarget(client.world);
+			String entityTypeKey = LockOnManager.getEntityTypeKey();
+			if (!entityTypeKey.isEmpty() || currentTarget != null) {
+				lineCount++;
+			}
+		}
+        
+        // Set dynamic background height
+        hudHeight = lineCount * lineHeight + 6; // 3px padding top and bottom
+        
+        // Draw background
+        context.fill(5, startY, 5 + hudWidth, startY + hudHeight, 0x80000000);
+        
+        // Now render the actual content
+        y = startY + 3; // 3px top padding
+        
+        // Player coordinates
+        context.drawText(textRenderer, coordText, 10, y, 0xFFFFFFFF, true);
+        y += lineHeight;
+        
+        // Player rotation
+        context.drawText(textRenderer, rotText, 10, y, 0xFFFFFFFF, true);
+        y += lineHeight;
+        
+        // Current action queues (compact format)
+        if (queuedBreakBlocks > 0) {
+            String breakText = queuedBreakBlocks == Integer.MAX_VALUE ? "Break: ∞" : "Break: " + queuedBreakBlocks;
+            context.drawText(textRenderer, breakText, 10, y, 0xFFFF5555, true);
+            y += lineHeight;
+        }
+        
+        if (queuedPlaceBlocks > 0) {
+            String placeText = queuedPlaceBlocks == Integer.MAX_VALUE ? "Place: ∞" : "Place: " + queuedPlaceBlocks;
+            context.drawText(textRenderer, placeText, 10, y, 0xFF55FF55, true);
+            y += lineHeight;
+        }
+        
+        if (useTicksRemaining > 0) {
+            String useText = "Use: " + String.format("%.1fs", useTicksRemaining / 20.0f);
+            context.drawText(textRenderer, useText, 10, y, 0xFF5555FF, true);
+            y += lineHeight;
+        }
+        
+        // Movement status (compact format)
+        for (int i = 0; i < 4; i++) {
+            if (moveDistanceRemaining[i] > 0) {
+                String[] directions = {"Forward", "Back", "Left", "Right"};
+                String moveText = directions[i] + ": " + String.format("%.1f", moveDistanceRemaining[i]);
+                context.drawText(textRenderer, moveText, 10, y, 0xFFFFFF55, true);
+                y += lineHeight;
+            }
+        }
+        
+        if (isSwimming) {
+            context.drawText(textRenderer, "Swimming", 10, y, 0xFF55FFFF, true);
+            y += lineHeight;
+        }
+        
+        // Building status (compact)
+        if (buildingTower) {
+            context.drawText(textRenderer, "Build: Tower", 10, y, 0xFFFF8855, true);
+            y += lineHeight;
+        } else if (buildingBridge) {
+            context.drawText(textRenderer, "Build: Bridge", 10, y, 0xFFFF8855, true);
+            y += lineHeight;
+        } else if (buildingMine) {
+            context.drawText(textRenderer, "Build: Mine", 10, y, 0xFFFF8855, true);
+            y += lineHeight;
+        }
+        
+        // Toggle states (combined into one line)
+        if (!toggles.isEmpty()) {
+            context.drawText(textRenderer, "Active: " + toggles.trim(), 10, y, 0xFF55FFFF, true);
+            y += lineHeight;
+        }
+        
+        // Lock on information
+        if (LockOnManager.isEnabled()) {
+            Entity currentTarget = LockOnManager.getCurrentTarget(client.world);
+            String entityTypeKey = LockOnManager.getEntityTypeKey();
+            
+            if (!entityTypeKey.isEmpty()) {
+                String targetText = "Lock: " + entityTypeKey + String.format(" (%.1fm)", LockOnManager.getDistanceToTarget());
+                context.drawText(textRenderer, targetText, 10, y, 0xFF55FFFF, true);
+                y += lineHeight;
+            } else {
+                context.drawText(textRenderer, "Lock: Active", 10, y, 0xFF55FFFF, true);
+                y += lineHeight;
+            }
+        }
+        
+        // Held item info (compact)
+        if (!mainHand.isEmpty()) {
+            String itemText = mainHand.getItem().getName().getString();
+            if (mainHand.getCount() > 1) {
+                itemText += " x" + mainHand.getCount();
+            }
             
             // Add durability as percentage if item is damageable
             if (mainHand.getMaxDamage() > 0) {
                 int currentDurability = mainHand.getMaxDamage() - mainHand.getDamage();
                 double durabilityPercent = (double) currentDurability / mainHand.getMaxDamage() * 100.0;
-                itemText += String.format(" (%.1f%%)", durabilityPercent);
+                itemText += String.format(" (%.0f%%)", durabilityPercent);
             }
             
-            context.drawText(textRenderer, itemText, 15, y, 0xFFAAAAAA, true);
+            context.drawText(textRenderer, itemText, 10, y, 0xFFAAAAAA, true);
+            y += lineHeight;
             
-            // Check if this is the food satchel using the registry identifier
+            // Check if this is the food satchel
             var itemId = Registries.ITEM.getId(mainHand.getItem());
             if (itemId.toString().equals("chat_plays_mc:foot_satchel")) { 
-        		ContainerComponent container = mainHand.get(DataComponentTypes.CONTAINER);
-        		if (container != null) {
-					context.drawText(textRenderer, "Contains: " + container.stream().count() + " items", 15, y + lineHeight, 0xFFAAAAAA, true);
-				}
+                ContainerComponent container = mainHand.get(DataComponentTypes.CONTAINER);
+                if (container != null) {
+                    context.drawText(textRenderer, "Items: " + container.stream().count(), 10, y, 0xFFAAAAAA, true);
+                }
             }
         }
     }

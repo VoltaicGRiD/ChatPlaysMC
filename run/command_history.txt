@@ -1,10 +1,3 @@
-/kill @e[type=minecraft:warden]
-/summon minecraft:warden
-/kill @e[type=minecraft:warden]
-/give @s chat_plays_mc:ploht_leggings
-/give @s chat_plays_mc:ploht_helmet
-/give @s chat_plays_mc:ploht_chestplate
-/give @s chat_plays_mc:ploht_boots
 /summon minecraft:warden
 /kill @e[type=minecraft:warden]
 /give @s chat_plays_mc:ploht_boots
@@ -48,3 +41,10 @@
 /give @s chat_plays_mc:food_satchel
 /give @s minecraft:cooked_beef 500
 /effect give @s hunger 3 255
+/weather clear
+/summon pig
+/
+/summon pig
+/t
+/summon pig
+/give @s minecraft:archer_pottery_sherd

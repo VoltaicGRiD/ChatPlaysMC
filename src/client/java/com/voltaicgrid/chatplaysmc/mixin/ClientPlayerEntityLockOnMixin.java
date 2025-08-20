@@ -238,6 +238,7 @@ public abstract class ClientPlayerEntityLockOnMixin {
       double distance = Math.sqrt(target.squaredDistanceTo(player));
       int targetNumber = this.chat_plays_mc$targetIndex + 1;
       int totalTargets = this.chat_plays_mc$cachedTargets.size();
+      LockOnManager.setDistanceToTarget((float) distance);
       Text message = Text.literal(String.format("§6%s target: §f%s §7(%.1fm) §8[%d/%d]", action, targetName, distance, targetNumber, totalTargets));
       player.sendMessage(message, true);
    }

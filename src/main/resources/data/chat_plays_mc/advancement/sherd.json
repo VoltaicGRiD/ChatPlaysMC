@@ -1,0 +1,61 @@
+{
+  "criteria": {
+    "get_pottery_sherd": {
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "minecraft:angler_pottery_sherd",
+              "minecraft:archer_pottery_sherd",
+              "minecraft:arms_up_pottery_sherd",
+              "minecraft:blade_pottery_sherd",
+              "minecraft:brewer_pottery_sherd",
+              "minecraft:burn_pottery_sherd",
+              "minecraft:danger_pottery_sherd",
+              "minecraft:explorer_pottery_sherd",
+              "minecraft:flow_pottery_sherd",
+              "minecraft:friend_pottery_sherd",
+              "minecraft:guster_pottery_sherd",
+              "minecraft:heart_pottery_sherd",
+              "minecraft:heartbreak_pottery_sherd",
+              "minecraft:howl_pottery_sherd",
+              "minecraft:miner_pottery_sherd",
+              "minecraft:mourner_pottery_sherd",
+              "minecraft:plenty_pottery_sherd",
+              "minecraft:prize_pottery_sherd",
+              "minecraft:scrape_pottery_sherd",
+              "minecraft:sheaf_pottery_sherd",
+              "minecraft:shelter_pottery_sherd",
+              "minecraft:skull_pottery_sherd",
+              "minecraft:snort_pottery_sherd"
+            ]
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.chat_plays_mc.sherd.description"
+    },
+    "icon": {
+      "count": 1,
+      "id": "minecraft:angler_pottery_sherd"
+    },
+    "title": {
+      "translate": "advancements.chat_plays_mc.sherd.title"
+    }
+  },
+  "requirements": [
+    [
+      "get_pottery_sherd"
+    ]
+  ],
+  "rewards": {
+    "loot": [
+      "chat_plays_mc:armor_set_reward"
+    ]
+  },
+  "sends_telemetry_event": true
+}

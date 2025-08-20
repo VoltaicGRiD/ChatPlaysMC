@@ -20,6 +20,10 @@ public class ModItems {
     public static Item SOAP;
     public static Item BITTEN_SOAP;
     public static Item FOOD_SATCHEL;
+    public static Item PLOHT_HELMET;
+    public static Item PLOHT_CHESTPLATE;
+    public static Item PLOHT_LEGGINGS;
+    public static Item PLOHT_BOOTS;
 	
 	public static void initialize() {
 	}
@@ -58,9 +62,30 @@ public class ModItems {
         		.maxCount(1)
         		.component(DataComponentTypes.CONTAINER, ContainerComponent.fromStacks(java.util.List.of(ItemStack.EMPTY, ItemStack.EMPTY, ItemStack.EMPTY)))
         		.registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(ChatPlaysMcMod.MOD_ID, "food_satchel")))));
-//        PLOHT_HELMET = registerItem("ploht_helmet",
-//            new Item(new Item.Settings().maxDamage(EquipmentType.HELMET.getMaxDamage(PlohtArmorMaterial.BASE_DURABILITY)).armor(PlohtArmorMaterial.INSTANCE, EquipmentType.HELMET)));
-        // repeat for other items…
+        PLOHT_HELMET = registerItem("ploht_helmet",
+        		new Item(new Item.Settings()
+        				.maxDamage(EquipmentType.HELMET
+        						.getMaxDamage(PlohtArmorMaterial.BASE_DURABILITY))
+        				.armor(PlohtArmorMaterial.INSTANCE, EquipmentType.HELMET)
+						.registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(ChatPlaysMcMod.MOD_ID, "ploht_helmet")))));
+        PLOHT_CHESTPLATE = registerItem("ploht_chestplate",
+        		new Item(new Item.Settings()
+						.maxDamage(EquipmentType.CHESTPLATE
+								.getMaxDamage(PlohtArmorMaterial.BASE_DURABILITY))
+						.armor(PlohtArmorMaterial.INSTANCE, EquipmentType.CHESTPLATE)
+						.registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(ChatPlaysMcMod.MOD_ID, "ploht_chestplate")))));
+        PLOHT_LEGGINGS = registerItem("ploht_leggings",
+				new Item(new Item.Settings()
+						.maxDamage(EquipmentType.LEGGINGS
+								.getMaxDamage(PlohtArmorMaterial.BASE_DURABILITY))
+						.armor(PlohtArmorMaterial.INSTANCE, EquipmentType.LEGGINGS)
+						.registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(ChatPlaysMcMod.MOD_ID, "ploht_leggings")))));
+		PLOHT_BOOTS = registerItem("ploht_boots",
+				new Item(new Item.Settings()
+						.maxDamage(EquipmentType.BOOTS
+								.getMaxDamage(PlohtArmorMaterial.BASE_DURABILITY))
+						.armor(PlohtArmorMaterial.INSTANCE, EquipmentType.BOOTS)
+						.registryKey(RegistryKey.of(RegistryKeys.ITEM, Identifier.of(ChatPlaysMcMod.MOD_ID, "ploht_boots")))));
     }
 
     private static Item registerItem(String name, Item item) {
