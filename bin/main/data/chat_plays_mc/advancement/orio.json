@@ -28,5 +28,10 @@
       "orio"
     ]
   ],
+	"rewards": {
+		"recipes": [
+			"chat_plays_mc:food_satchel"
+		] 
+	},
   "sends_telemetry_event": true
 }

@@ -14,5 +14,8 @@
     "result": {
         "id": "chat_plays_mc:soap",
         "count": 4
-    }
+    },
+		"owo:remainders": {
+			"minecraft:water_bucket": "minecraft:bucket"
+		}
 }

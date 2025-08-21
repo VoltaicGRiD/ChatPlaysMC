@@ -1,30 +1,3 @@
-/summon minecraft:warden
-/kill @e[type=minecraft:warden]
-/give @s chat_plays_mc:ploht_boots
-/give @s chat_plays_mc:ploht_chestplate
-/give @s chat_plays_mc:ploht_helmet
-/give @s chat_plays_mc:ploht_leggings
-/summon minecraft:skeleton
-/difficulty hard
-/time set night
-/time add 1000
-/gamerule doDaylightCycle false
-/give @s minecraft:diamond_boots
-/give @s minecraft:diamond_helmet
-/give @s minecraft:diamond_chestplate
-/give @s minecraft:diamond_leggings
-/effect give @s minecraft:regeneration 3 255
-/summon minecraft:zombie
-/kill @e[type=!minecraft:player]
-/effect give @s minecraft:regeneration 3 255
-/summon minecraft:zombie
-/time set day
-/difficulty peaceful
-/reset
-/give @s minecraft:diamond_pickaxe
-/summon pig
-/summon cow
-/give @s chat_plays_mc:orio
 /give @s orio
 /give @s chat_plays_mc:orio
 /give @s chat_plays_mc:food_satchel
@@ -48,3 +21,30 @@
 /t
 /summon pig
 /give @s minecraft:archer_pottery_sherd
+/give @s chat_plays_mc:shaft_builder
+/tp ~ 40 ~
+/tp ~ ~40 ~
+/give @s minecraft:diamond
+/give @s minecraft:crafting_table
+/give @s minecraft:leather 5
+/give @s stick 25
+/give @s minecraft:diamond
+/give @s minecraft:leather 5
+/give @s minecraft:stick 2
+/give @s chat_plays_mc:food_satchel
+/give @s minecraft:cooked_beef 4
+/give @s ploht
+/give @s chat_plays_mc:ploht_boots
+/give @s chat_plays_mc:ploht_chestplate
+/give @s chat_plays_mc:ploht_leggings
+/give @s chat_plays_mc:ploht_helmet
+/give @s chat_plays_mc:torch_satchel
+/time set night
+/time add 1000
+/give @s chat_plays_mc:shaft_builder
+/give @s minecraft:crafting_table
+/give @s minecraft:writable_book
+/give @s chat_plays_mc:grappling_hook
+/difficulty peaceful
+/give @s glass 45
+/give @s glass 5

@@ -3,7 +3,7 @@
   "id": "chat_plays_mc",
   "version": "${version}",
   "name": "Chat Plays MC",
-  "description": "A starter template for a Fabric 1.21.x mod.",
+  "description": "Let your Twitch chat play Minecraft! This mod allows viewers to control the game through chat commands, creating a unique and interactive experience.",
   "authors": ["You"],
   "contact": {
     "sources": "https://example.com/chat_plays_mc"

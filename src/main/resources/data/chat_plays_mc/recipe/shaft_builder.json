@@ -1,0 +1,17 @@
+{
+		"type": "minecraft:crafting_shaped",
+    "pattern": [
+        "C C",
+        "ABA",
+        "AAA"
+    ],
+    "key": {
+        "A": "minecraft:leather",
+        "B": "minecraft:diamond",
+        "C": "minecraft:stick"
+    },
+    "result": {
+        "id": "chat_plays_mc:shaft_builder",
+        "count": 2
+    }
+}

@@ -1,0 +1,18 @@
+{
+		"type": "minecraft:crafting_shaped",
+    "pattern": [
+        "ABA",
+        "ACA",
+        "ADA"
+    ],
+    "key": {
+        "A": "#minecraft:planks",
+        "B": "minecraft:stick",
+        "C": "#minecraft:wool_carpets",
+				"D": "minecraft:leather"
+    },
+    "result": {
+        "id": "chat_plays_mc:food_satchel",
+        "count": 1
+    }
+}

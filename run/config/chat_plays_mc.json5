@@ -1,0 +1,7 @@
+{
+	"twitchChannel": "chatplaysmc",
+	"useOldTowering": false,
+	"showHudInformation": true,
+	"enableLockOn": true,
+	"enableSwimCommands": true
+}

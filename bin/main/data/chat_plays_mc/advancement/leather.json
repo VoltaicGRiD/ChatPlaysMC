@@ -1,0 +1,26 @@
+{
+  "criteria": {
+    "leather": {
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:leather"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "requirements": [
+    [
+      "leather"
+    ]
+  ],
+	"rewards": {
+		"recipes": [
+			"chat_plays_mc:food_satchel",
+			"chat_plays_mc:torch_satchel"
+		] 
+	},
+  "sends_telemetry_event": true
+}

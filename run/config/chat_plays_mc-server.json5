@@ -1,0 +1,8 @@
+{
+	"enableOrio": true,
+	"enableSoap": true,
+	"enableFoodSatchel": true,
+	"enableTorchSatchel": true,
+	"torchSatchelLightThreshold": 7,
+	"enablePlohtArmor": true
+}

@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "chat_plays_mc:item/torch_satchel"
+  }
+}

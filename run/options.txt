@@ -28,7 +28,7 @@ renderDistance:12
 simulationDistance:12
 screenEffectScale:1.0
 soundDevice:""
-autoJump:true
+autoJump:false
 rotateWithMinecart:false
 operatorItemsTab:false
 autoSuggestions:true

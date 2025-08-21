@@ -1,0 +1,25 @@
+{
+  "criteria": {
+    "torch": {
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:torch"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "requirements": [
+    [
+      "torch"
+    ]
+  ],
+	"rewards": {
+		"recipes": [
+			"chat_plays_mc:torch_satchel"
+		] 
+	},
+  "sends_telemetry_event": true
+}

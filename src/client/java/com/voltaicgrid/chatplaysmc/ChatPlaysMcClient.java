@@ -5,6 +5,8 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
@@ -46,10 +48,12 @@ import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.component.type.ContainerComponent;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.block.Block;
+import net.minecraft.client.render.entity.model.EntityModelLayer;
 import net.minecraft.block.Blocks;
 import net.minecraft.fluid.FluidState;
 import net.minecraft.fluid.Fluids;
 import net.minecraft.registry.tag.FluidTags;
+import net.minecraft.client.gui.widget.*;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import java.util.List;
 import java.util.Locale;
@@ -60,11 +64,17 @@ import com.voltaicgrid.chatplaysmc.mixin.HandledScreenAccessor;
 import com.voltaicgrid.chatplaysmc.mixin.RecipeScreenAccessor;
 import com.voltaicgrid.chatplaysmc.mixin.RecipeBookWidgetAccessor;
 import com.voltaicgrid.chatplaysmc.mixin.RecipeBookResultsAccessor;
+import com.voltaicgrid.chatplaysmc.mixin.ScreenAccessor;
+import com.voltaicgrid.chatplaysmc.config.ConfigManager;
 import net.minecraft.client.gui.screen.recipebook.RecipeBookWidget;
 import net.minecraft.recipe.NetworkRecipeId;
 import net.minecraft.client.gui.screen.*;
+import net.minecraft.client.render.entity.EntityRenderer;
+import net.minecraft.client.render.entity.EntityRendererFactory;
 
 public class ChatPlaysMcClient implements ClientModInitializer {
+    public static final EntityModelLayer GRAPPLING_HOOK_LAYER = new EntityModelLayer(Identifier.of("chat_plays_mc", "grappling_hook"), "main");
+    
     private static KeyBinding lookUpKey;
     private static KeyBinding lookDownKey;
     private static KeyBinding lookLeftKey;
@@ -103,18 +113,26 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     private static final float LERP_SPEED = 0.15f; // Adjust this value to control smoothness (0.1 = slower, 0.3 = faster)
 
     public static final String MODID = "chat_plays_mc";
+    public static final ConfigManager CONFIG = ConfigManager.createAndLoad();
     
     @Override
     public void onInitializeClient() {
         // Register the food satchel screen
+    	
+        // Register entity renderers
+        EntityRendererRegistry.register(ModEntities.GRAPPLING_HOOK, GrapplingHookRenderer::new);
+        
+        // Register model layers
+        EntityModelLayerRegistry.registerModelLayer(GRAPPLING_HOOK_LAYER, GrapplingHookEntityModel::createModelData);
         
         ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
         	
         	twitchClient = TwitchClientBuilder.builder()
             		.withEnableChat(true)
             		.build();
-        	
-        	twitchClient.getChat().joinChannel("oridont");
+        
+        	//twitchClient.getChat().joinChannel(CONFIG.twitchChannel());
+        	twitchClient.getChat().joinChannel("voltaicgrid");
 
         	twitchClient.getEventManager().onEvent(ChannelMessageEvent.class, event -> {
 //        		boolean isModerator = event.getUser().isModerator() || event.getUser().isBroadcaster();
@@ -157,6 +175,7 @@ public class ChatPlaysMcClient implements ClientModInitializer {
                 final Matcher clickMatcher = Pattern.compile("\\b(rc|lc|dc|right\\s+click|left\\s+click|double\\s*click)\\s*(\\d+(?:\\.\\d+)?)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher screenMatcher = Pattern.compile("\\b(inv|inventory|close|exit)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher slotMatcher = Pattern.compile("\\b(slot)\\s*(\\d+)\\s*(all|move|craft|throw|one)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher buttonMatcher = Pattern.compile("\\b(button)\\s*(\\d+)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher lockonMatcher = Pattern.compile("\\b(lock)\\s*(on|off)\\s*(\\w*)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher targetMatcher = Pattern.compile("\\b(target|lock)\\s*(next|previous|prev|nearest)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher toggleMatcher = Pattern.compile("\\b(toggle)\\s*(attack|break|place)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
@@ -180,16 +199,16 @@ public class ChatPlaysMcClient implements ClientModInitializer {
                 		// Start building a tower: queue placing blocks while looking straight down
     					client.execute(() -> {
     						if (client.player != null) {
-//    							// Check if player has a placeable block in hand
-//    							ItemStack mainHand = client.player.getMainHandStack();
-//    							if (mainHand.isEmpty() || !(mainHand.getItem() instanceof net.minecraft.item.BlockItem)) {
-//    								System.out.println("Cannot build tower: No block in hand. Please hold a block item.");
-//    								return;
-//    							}
-//    							
-//    							// Look straight down
-//    							client.player.setPitch(90.0f);
-//    							// Start moving up and queue placing blocks
+    							// Check if player has a placeable block in hand
+    							ItemStack mainHand = client.player.getMainHandStack();
+    							if (mainHand.isEmpty() || !(mainHand.getItem() instanceof net.minecraft.item.BlockItem)) {
+    								System.out.println("Cannot build tower: No block in hand. Please hold a block item.");
+    								return;
+    							}
+    							
+    							// Look straight down
+    							client.player.setPitch(90.0f);
+    							// Start moving up and queue placing blocks
     							queuedPlaceBlocks = count;
     							buildingTower = true;
     							System.out.println("Building tower with " + count + " blocks using " + mainHand.getItem().getName().getString());
@@ -210,7 +229,7 @@ public class ChatPlaysMcClient implements ClientModInitializer {
                 	} else if (cmd.equals("mine")) {
     					// Set pitch to 0, and set yaw to nearest 90 degree (N/E/S/W) to dig straight
 
-    					client.execute(() -> {
+    				 client.execute(() -> {
     						if (client.player != null) {
     							// Level pitch
     							client.player.setPitch(0.0f);
@@ -306,7 +325,7 @@ public class ChatPlaysMcClient implements ClientModInitializer {
                     }
             	}
             	
-            	if (swimMatcher.find()) {
+            	if (swimMatcher.find() && CONFIG.enableSwimCommands()) {
             		String cmd = swimMatcher.group(1).toLowerCase();
     				
     				client.execute(() -> {
@@ -526,7 +545,156 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     				}
     			}
     			
-    			if (lockonMatcher.find()) {
+    			if (buttonMatcher.find()) {
+    				int buttonId = Integer.parseInt(buttonMatcher.group(2));
+					
+					client.execute(() -> {
+						// Check if button clicking is allowed on the current screen
+						if (!isButtonClickingAllowedOnCurrentScreen(client)) {
+							String screenName = client.currentScreen != null ? 
+								client.currentScreen.getClass().getSimpleName() : "null";
+							System.out.println("Button clicking disabled on screen: " + screenName);
+							return;
+						}
+						
+						if (client.currentScreen != null) {						
+					        var children = ((ScreenAccessor) client.currentScreen).getChildren();
+					        
+					        // Build a list of all clickable widgets using the same logic as renderAllButtonIndices
+					        var clickableWidgets = new java.util.ArrayList<net.minecraft.client.gui.Element>();
+					        
+					        for (var child : children) {
+					            boolean isClickable = false;
+					            
+					            // Check for ClickableWidget (covers most buttons, text fields, etc.)
+					            if (child instanceof ClickableWidget clickable) {
+					                if (clickable.visible && clickable.active) {
+					                    isClickable = true;
+					                }
+					            }
+					            // Check for any Element that has mouse interaction methods
+					            else if (child instanceof net.minecraft.client.gui.Element element) {
+					                try {
+					                    var getXMethod = element.getClass().getMethod("getX");
+					                    var getYMethod = element.getClass().getMethod("getY");
+					                    var isVisibleMethod = element.getClass().getMethod("isVisible");
+					                    var isActiveMethod = element.getClass().getMethod("isActive");
+					                    
+					                    if (getXMethod != null && getYMethod != null) {
+					                        boolean visible = true;
+					                        boolean active = true;
+					                        
+					                        try {
+					                            visible = (Boolean) isVisibleMethod.invoke(element);
+					                            active = (Boolean) isActiveMethod.invoke(element);
+					                        } catch (Exception e) {
+					                            // If we can't check visibility/active state, assume it's visible and active
+					                        }
+					                        
+					                        if (visible && active) {
+					                            isClickable = true;
+					                        }
+					                    }
+					                } catch (Exception e) {
+					                    // Element doesn't have the expected methods, skip it
+					                }
+					            }
+					            
+					            // Special handling for specific widget types that might not be caught above
+					            if (!isClickable) {
+					                // Check for TextFieldWidget specifically
+					                if (child instanceof TextFieldWidget textField) {
+					                    if (textField.isVisible() && textField.isActive()) {
+					                        isClickable = true;
+					                    }
+					                }
+					                // Check for EntryListWidget entries (like in settings menus)
+					                else if (child.getClass().getSimpleName().contains("Entry") || 
+					                         child.getClass().getSimpleName().contains("List")) {
+					                    try {
+					                        var getXMethod = child.getClass().getMethod("getX");
+					                        var getYMethod = child.getClass().getMethod("getY");
+					                        if (getXMethod != null && getYMethod != null) {
+					                            isClickable = true;
+					                        }
+					                    } catch (Exception e) {
+					                        // Skip if we can't get position
+					                    }
+					                }
+					                // Check for any widget that implements common mouse interaction interfaces
+					                else if (child instanceof net.minecraft.client.gui.ParentElement ||
+					                         child.getClass().getSimpleName().contains("Widget") ||
+					                         child.getClass().getSimpleName().contains("Button")) {
+					                    try {
+					                        var getXMethod = child.getClass().getMethod("getX");
+					                        var getYMethod = child.getClass().getMethod("getY");
+					                        if (getXMethod != null && getYMethod != null) {
+					                            isClickable = true;
+					                        }
+					                    } catch (Exception e) {
+					                        // Skip if we can't get position
+					                    }
+					                }
+					            }
+					            
+					            if (isClickable) {
+					                clickableWidgets.add(child);
+					            }
+					        }
+					        							
+					        try {
+					        	if (buttonId > 0 && buttonId <= clickableWidgets.size()) {
+					        		var widget = clickableWidgets.get(buttonId - 1);
+					        		
+					        		// Try to click the widget using different methods depending on its type
+					        		boolean clicked = false;
+					        		
+					        		// If it's a ClickableWidget, use onClick
+					        		if (widget instanceof ClickableWidget clickable) {
+					        		    clickable.onClick(0, 0);
+					        		    clicked = true;
+					        		}
+					        		// For other widgets, try reflection to find click methods
+					        		else {
+					        		    try {
+					        		        // Try common click method names
+					        		        var onClickMethod = widget.getClass().getMethod("onClick", double.class, double.class);
+					        		        onClickMethod.invoke(widget, 0.0, 0.0);
+					        		        clicked = true;
+					        		    } catch (Exception e1) {
+					        		        try {
+					        		            var onPressMethod = widget.getClass().getMethod("onPress");
+					        		            onPressMethod.invoke(widget);
+					        		            clicked = true;
+					        		        } catch (Exception e2) {
+					        		                    try {
+					        		                var mouseClickedMethod = widget.getClass().getMethod("mouseClicked", double.class, double.class, int.class);
+					        		                mouseClickedMethod.invoke(widget, 0.0, 0.0, 0);
+					        		                clicked = true;
+					        		            } catch (Exception e3) {
+					        		                System.out.println("Could not find suitable click method for widget type: " + widget.getClass().getSimpleName());
+					        		            }
+					        		        }
+					        		    }
+					        		}
+					        		
+					        		if (clicked) {
+					        		    System.out.println("Clicked button " + buttonId + " (" + widget.getClass().getSimpleName() + ")");
+					        		} else {
+					        		    System.out.println("Failed to click button " + buttonId + " (" + widget.getClass().getSimpleName() + ")");
+					        		}
+					        	} else {
+					        		System.out.println("Button index out of bounds: " + buttonId + " (available: 1-" + clickableWidgets.size() + ")");
+					        	}
+					        }
+					        catch (Exception e) {
+					        	System.out.println("Error clicking button " + buttonId + ": " + e.getMessage());
+					        }
+						}
+					});
+    			}
+    			
+    			if (lockonMatcher.find() && CONFIG.enableLockOn()) {
                     
                     client.execute(() -> {
                         String state = lockonMatcher.group(2).toLowerCase();
@@ -546,7 +714,7 @@ public class ChatPlaysMcClient implements ClientModInitializer {
                     });
                 }
     			
-    			if (targetMatcher.find()) {
+    			if (targetMatcher.find() && CONFIG.enableLockOn()) {
                     
                     client.execute(() -> {
                         String command = targetMatcher.group(2).toLowerCase();
@@ -601,6 +769,27 @@ public class ChatPlaysMcClient implements ClientModInitializer {
             });
     	});
         
+        // Ensure we gracefully disconnect from Twitch when the client is stopping
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
+            if (twitchClient != null) {
+                try {
+                    String channel = CONFIG.twitchChannel();
+                    if (channel != null && !channel.isBlank()) {
+                        try {
+                            twitchClient.getChat().leaveChannel(channel);
+                        } catch (Exception ignored) {}
+                    }
+                    // Close the Twitch client to shutdown all internal resources/threads
+                    try {
+                        twitchClient.close();
+                    } catch (Exception e) {
+                        System.out.println("Error while closing Twitch client: " + e.getMessage());
+                    }
+                } finally {
+                    twitchClient = null;
+                }
+            }
+        });
 
         String category = "category." + ChatPlaysMcMod.MOD_ID + ".controls";
 
@@ -621,6 +810,11 @@ public class ChatPlaysMcClient implements ClientModInitializer {
                     renderRecipeBookButtonIndices(s, drawContext);
                 });
             }
+            
+            // Render all button indices for any screen
+            ScreenEvents.afterRender(screen).register((s, drawContext, mouseX, mouseY, delta) -> {
+                renderAllButtonIndices(s, drawContext);
+            });
         });
         
         // Register HUD rendering callback
@@ -800,13 +994,19 @@ public class ChatPlaysMcClient implements ClientModInitializer {
 			// While building a tower, keep looking down and moving up
 			if (client.player != null) {
 				client.player.setPitch(90.0f); // look straight down
-				client.player.setVelocity(client.player.getVelocity().x, 0.3, client.player.getVelocity().z); // move up at 0.3 blocks per tick
+				if (CONFIG.useOldTowering())
+					client.player.setVelocity(client.player.getVelocity().x, 0.3, client.player.getVelocity().z); // move up at 0.3 blocks per tick
+				else
+					client.options.jumpKey.setPressed(true); // use jump to move up
 			}
 		} else if (buildingTower) {
 			// Finished building tower
 			buildingTower = false;
 			if (client.player != null) {
-				client.player.setVelocity(client.player.getVelocity().x, 0.0, client.player.getVelocity().z); // stop moving up
+				if (CONFIG.useOldTowering())
+					client.player.setVelocity(client.player.getVelocity().x, 0.0, client.player.getVelocity().z); // stop moving up
+				else
+					client.options.jumpKey.setPressed(false); // stop jumping
 			}
 		} 
         
@@ -1015,12 +1215,39 @@ public class ChatPlaysMcClient implements ClientModInitializer {
             String text = Integer.toString(i + 1); // show 1-based index
             context.drawText(tr, text, x, y, color, true);
         }
-        
     }
     
     private void renderRecipeBookButtonIndices(Object screen, DrawContext context) {
         RecipeBookWidget widget = getRecipeBookWidget(screen);
         if (widget == null) return;
+        
+        // Check if the recipe book is actually open/visible
+        try {
+            var isOpenMethod = widget.getClass().getMethod("isOpen");
+            boolean isOpen = (Boolean) isOpenMethod.invoke(widget);
+            if (!isOpen) return; // Don't render indices if recipe book is closed
+        } catch (Exception e) {
+            // If we can't check if it's open, try alternative method
+            try {
+                var isVisibleMethod = widget.getClass().getMethod("isVisible");
+                boolean isVisible = (Boolean) isVisibleMethod.invoke(widget);
+                if (!isVisible) return; // Don't render indices if recipe book is not visible
+            } catch (Exception e2) {
+                // If neither method works, fall back to checking if recipe area exists and is visible
+                var recipeArea = ((RecipeBookWidgetAccessor)(Object) widget).getRecipesArea();
+                if (recipeArea == null) return;
+                
+                try {
+                    var areaVisibleMethod = recipeArea.getClass().getMethod("isVisible");
+                    boolean areaVisible = (Boolean) areaVisibleMethod.invoke(recipeArea);
+                    if (!areaVisible) return;
+                } catch (Exception e3) {
+                    // If we can't determine visibility, skip rendering to be safe
+                    return;
+                }
+            }
+        }
+        
         var recipeArea = ((RecipeBookWidgetAccessor)(Object) widget).getRecipesArea();
         if (recipeArea == null) return;
         var buttons = ((RecipeBookResultsAccessor)(Object) recipeArea).getResultButtons();
@@ -1033,7 +1260,114 @@ public class ChatPlaysMcClient implements ClientModInitializer {
             context.drawText(MinecraftClient.getInstance().textRenderer, text, x + 2, y + 2, 0x44FF0000, true);
         }
     }
-
+    
+    private void renderAllButtonIndices(Screen screen, DrawContext context) {
+        if (screen == null) return;
+        
+        var tr = MinecraftClient.getInstance().textRenderer;
+        int color = 0x4400FF00; // semi-transparent green (ARGB) - different from slots (yellow) and recipe buttons (red)
+        
+        // Get all children from the screen using our accessor mixin
+        var children = ((ScreenAccessor) screen).getChildren();
+        if (children == null || children.isEmpty()) return;
+        
+        int buttonIndex = 1; // Start from 1 for user-friendly numbering
+        
+        for (var child : children) {
+            boolean shouldRender = false;
+            int x = 0, y = 0;
+            
+            // Check for ClickableWidget (covers most buttons, text fields, etc.)
+            if (child instanceof ClickableWidget clickable) {
+                if (clickable.visible && clickable.active) {
+                    x = clickable.getX() + 2;
+                    y = clickable.getY() + 2;
+                    shouldRender = true;
+                }
+            }
+            // Check for any Element that has mouse interaction methods
+            else if (child instanceof net.minecraft.client.gui.Element element) {
+                // Try to get position via reflection or known interface methods
+                try {
+                    // Many interactive elements have these methods even if they don't extend ClickableWidget
+                    var getXMethod = element.getClass().getMethod("getX");
+                    var getYMethod = element.getClass().getMethod("getY");
+                    var isVisibleMethod = element.getClass().getMethod("isVisible");
+                    var isActiveMethod = element.getClass().getMethod("isActive");
+                    
+                    if (getXMethod != null && getYMethod != null) {
+                        boolean visible = true;
+                        boolean active = true;
+                        
+                        try {
+                            visible = (Boolean) isVisibleMethod.invoke(element);
+                            active = (Boolean) isActiveMethod.invoke(element);
+                        } catch (Exception e) {
+                            // If we can't check visibility/active state, assume it's visible and active
+                        }
+                        
+                        if (visible && active) {
+                            x = (Integer) getXMethod.invoke(element) + 2;
+                            y = (Integer) getYMethod.invoke(element) + 2;
+                            shouldRender = true;
+                        }
+                    }
+                } catch (Exception e) {
+                    // Element doesn't have the expected methods, skip it
+                }
+            }
+            
+            // Special handling for specific widget types that might not be caught above
+            if (!shouldRender) {
+                // Check for TextFieldWidget specifically
+                if (child instanceof TextFieldWidget textField) {
+                    if (textField.isVisible() && textField.isActive()) {
+                        x = textField.getX() + 2;
+                        y = textField.getY() + 2;
+                        shouldRender = true;
+                    }
+                }
+                // Check for EntryListWidget entries (like in settings menus)
+                else if (child.getClass().getSimpleName().contains("Entry") || 
+                         child.getClass().getSimpleName().contains("List")) {
+                    try {
+                        var getXMethod = child.getClass().getMethod("getX");
+                        var getYMethod = child.getClass().getMethod("getY");
+                        if (getXMethod != null && getYMethod != null) {
+                            x = (Integer) getXMethod.invoke(child) + 2;
+                            y = (Integer) getYMethod.invoke(child) + 2;
+                            shouldRender = true;
+                        }
+                    } catch (Exception e) {
+                        // Skip if we can't get position
+                    }
+                }
+                // Check for any widget that implements common mouse interaction interfaces
+                else if (child instanceof net.minecraft.client.gui.ParentElement ||
+                         child.getClass().getSimpleName().contains("Widget") ||
+                         child.getClass().getSimpleName().contains("Button")) {
+                    try {
+                        var getXMethod = child.getClass().getMethod("getX");
+                        var getYMethod = child.getClass().getMethod("getY");
+                        if (getXMethod != null && getYMethod != null) {
+                            x = (Integer) getXMethod.invoke(child) + 2;
+                            y = (Integer) getYMethod.invoke(child) + 2;
+                            shouldRender = true;
+                        }
+                    } catch (Exception e) {
+                        // Skip if we can't get position
+                    }
+                }
+            }
+            
+            if (shouldRender) {
+                String text = "B" + buttonIndex; // Prefix with "B" to distinguish from slots
+                context.drawText(tr, text, x, y, color, true);
+                buttonIndex++;
+            }
+        }
+    }
+    
     private net.minecraft.client.gui.screen.recipebook.RecipeBookWidget getRecipeBookWidget(Object screen) {
         if (screen instanceof InventoryScreen inv) {
             return ((com.voltaicgrid.chatplaysmc.mixin.RecipeScreenAccessor)(Object) inv).getRecipeBook();
@@ -1122,7 +1456,41 @@ public class ChatPlaysMcClient implements ClientModInitializer {
         return true;
     }
     
+    private boolean isButtonClickingAllowedOnCurrentScreen(MinecraftClient client) {
+        if (client.currentScreen == null) {
+            // In-game, no screen open - always allow
+            return true;
+        }
+        
+        // Check for pause menu screens
+        if (client.currentScreen instanceof net.minecraft.client.gui.screen.GameMenuScreen ||
+            client.currentScreen instanceof net.minecraft.client.gui.screen.option.OptionsScreen ||
+            client.currentScreen instanceof net.minecraft.client.gui.screen.option.VideoOptionsScreen ||
+            client.currentScreen instanceof net.minecraft.client.gui.screen.option.SoundOptionsScreen ||
+            client.currentScreen instanceof net.minecraft.client.gui.screen.option.ControlsOptionsScreen ||
+            client.currentScreen instanceof net.minecraft.client.gui.screen.option.LanguageOptionsScreen ||
+            client.currentScreen instanceof net.minecraft.client.gui.screen.option.ChatOptionsScreen ||
+            client.currentScreen instanceof net.minecraft.client.gui.screen.option.AccessibilityOptionsScreen) {
+            return CONFIG.allowButtonClickingOnPauseMenus();
+        }
+        
+        // Check for main menu and title screen
+        if (client.currentScreen instanceof net.minecraft.client.gui.screen.TitleScreen ||
+            client.currentScreen instanceof net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen ||
+            client.currentScreen instanceof net.minecraft.client.gui.screen.world.SelectWorldScreen ||
+            client.currentScreen instanceof net.minecraft.client.gui.screen.world.CreateWorldScreen ||
+            client.currentScreen instanceof net.minecraft.client.gui.screen.world.EditWorldScreen ||
+            client.currentScreen.getClass().getSimpleName().contains("Menu")) {
+            return CONFIG.allowButtonClickingOnMainMenus();
+        }
+        
+        // For all other screens (inventory, crafting, chests, etc.) - allow by default
+        return true;
+    }
+    
     private void renderChatPlaysHUD(DrawContext context, float tickDelta) {
+    	if (!CONFIG.showHudInformation()) return;
+    	
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null || client.options.hudHidden) return;
         
