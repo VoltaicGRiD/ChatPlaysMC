@@ -1,0 +1,29 @@
+{
+  "minecraft:recipes/decorations/crafting_table": {
+    "criteria": {
+      "unlock_right_away": "2025-08-23 02:27:47 -0600"
+    },
+    "done": true
+  },
+  "minecraft:recipes/redstone/dispenser": {
+    "criteria": {
+      "has_bow": "2025-08-23 02:27:47 -0600"
+    },
+    "done": true
+  },
+  "minecraft:adventure/adventuring_time": {
+    "criteria": {
+      "minecraft:beach": "2025-08-23 02:27:48 -0600",
+      "minecraft:forest": "2025-08-23 02:27:51 -0600",
+      "minecraft:river": "2025-08-24 02:24:18 -0600"
+    },
+    "done": false
+  },
+  "minecraft:adventure/root": {
+    "criteria": {
+      "killed_by_something": "2025-08-23 02:27:49 -0600"
+    },
+    "done": true
+  },
+  "DataVersion": 4440
+}

@@ -1,50 +1,50 @@
-/give @s orio
-/give @s chat_plays_mc:orio
-/give @s chat_plays_mc:food_satchel
-/give @s minecraft:cooked_beef 5
-/effect give @s hunger 3 255
-/difficulty hard
-/effect give @s hunger 3 255
-/give @s chat_plays_mc:food_satchel
-/effect give @s hunger 3 255
-/difficulty hard
-/effect give @s hunger 3 255
-/give @s chat_plays_mc:food_satchel
-/effect give @s hunger 3 255
-/give @s chat_plays_mc:food_satchel
-/give @s minecraft:cooked_beef 500
-/effect give @s hunger 3 255
-/weather clear
-/summon pig
-/
-/summon pig
-/t
-/summon pig
-/give @s minecraft:archer_pottery_sherd
-/give @s chat_plays_mc:shaft_builder
-/tp ~ 40 ~
-/tp ~ ~40 ~
-/give @s minecraft:diamond
-/give @s minecraft:crafting_table
-/give @s minecraft:leather 5
-/give @s stick 25
-/give @s minecraft:diamond
-/give @s minecraft:leather 5
-/give @s minecraft:stick 2
-/give @s chat_plays_mc:food_satchel
-/give @s minecraft:cooked_beef 4
-/give @s ploht
-/give @s chat_plays_mc:ploht_boots
-/give @s chat_plays_mc:ploht_chestplate
-/give @s chat_plays_mc:ploht_leggings
-/give @s chat_plays_mc:ploht_helmet
-/give @s chat_plays_mc:torch_satchel
-/time set night
-/time add 1000
-/give @s chat_plays_mc:shaft_builder
-/give @s minecraft:crafting_table
-/give @s minecraft:writable_book
-/give @s chat_plays_mc:grappling_hook
-/difficulty peaceful
-/give @s glass 45
-/give @s glass 5
+/give @s chat_plays_mc:stone_paxel
+/effect give @s minecraft:night_vision infinite 1
+/give @s chat_plays_mc:iron_paxel
+/effect give @s minecraft:night_vision infinite 1
+/give @s chat_plays_mc:iron_paxel
+/give @s chat_plays_mc:gold_paxel
+/give @s chat_plays_mc:diamond_paxel
+/effect give @s minecraft:night_vision infinite 1
+/give @s chat_plays_mc:iron_paxel
+/give @s chat_plays_mc:gold_paxel
+/give @s chat_plays_mc:diamond_paxel
+/give @s chat_plays_mc:netherite_paxel
+/give @s enchanting
+/give @s minecraft:enchanting_table
+/give @s minecraft:lapis_lazuli 128
+/xp set @s 60000 levels
+/give @s minecraft:bookshelf 64
+/give @s chat_plays_mc:diamond_paxel
+/reload
+/data get entity @s SelectedItem
+/give @s minecraft:diamond_pickaxe
+/data get entity @s SelectedItem
+/give @s chat_plays_mc:diamond_paxel[components={minecraft:enchantable:{value:14}}]
+/give @a chat_plays_mc:diamond_paxel[enchantable={value:14}]
+/data get entity @s SelectedItem.components
+/give @a chat_plays_mc:diamond_paxel[components={minecraft:enchantable:{value:10}}]
+/give @s chat_plays_mc:diamond_paxel
+/give @s chat_plays_mc:magnet
+/give @s chat_plays_mc:grave_pearl
+/kill @e
+/give @s chat_plays_mc:grave_pearl
+/summon minecraft:zombie
+/kill @e
+/give @s chat_plays_mc:grave_pearl
+/kill @e
+/give @s chat_plays_mc:grave_pearl
+/kill @e
+/give @s chat_plays_mc:grave_pearl
+/kill @e
+/give @s chat_plays_mc:grave_pearl
+/give @s dirt 64
+/kill @e
+/give @s chat_plays_mc:grave_pearl
+/kill @e
+/give @s chat_plays_mc:grave_pearl
+/kill @e
+/give @s chat_plays_mc:grave_pearl
+/kill @e
+/give @s chat_plays_mc:grave_pearl
+/give @s chat_plays_mc:grave_pearl 64

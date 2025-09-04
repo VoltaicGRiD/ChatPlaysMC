@@ -25,7 +25,7 @@ public class ShaftBuilder extends Item {
 		World world = context.getWorld();
 		// Only run logic on the server to avoid ClientWorld -> ServerWorld cast
 		if (!(world instanceof ServerWorld serverWorld)) {
-			return ActionResult.PASS;
+			return ActionResult.SUCCESS; // Return SUCCESS on client to indicate the action should proceed
 		}
 		Direction side = context.getSide();
 		var blockStacks = new ArrayList<ItemStack>();
@@ -55,8 +55,10 @@ public class ShaftBuilder extends Item {
 			}
 		}
 		
-		// Consume the item
-		context.getStack().decrement(1);
+		// Consume the item (only in survival mode)
+		if (!context.getPlayer().getAbilities().creativeMode) {
+			context.getStack().decrement(1);
+		}
 		
 		return ActionResult.SUCCESS;
 	}

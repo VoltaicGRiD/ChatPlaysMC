@@ -1,0 +1,324 @@
+package com.voltaicgrid.chatplaysmc;
+
+import net.minecraft.entity.projectile.ProjectileEntity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.MovementType;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.entity.data.DataTracker;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3i;
+import org.jetbrains.annotations.Nullable;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.world.RaycastContext;
+import net.minecraft.entity.data.TrackedData;
+import net.minecraft.entity.data.TrackedDataHandlerRegistry;
+
+public class GrapplingHookEntity extends ProjectileEntity {
+    @Nullable private String ownerName;
+    private int life;
+    private static final int MAX_LIFE = 200; // 10s at 20 tps
+
+    // Hook state
+    private boolean hooked;
+    private Vec3d anchor;
+    private int hookedTicks;
+    
+    // Store the orientation when the hook hits a surface (so it doesn't keep rotating)
+    private float impactYaw;
+    private float impactPitch;
+    private boolean hasImpactOrientation = false;
+
+    private boolean hasImpactEmbed;
+    private Direction impactFace;        // block face hit
+    private float impactOffsetX, impactOffsetY, impactOffsetZ; // tiny offset along face normal
+
+    private static final double GRAVITY = 0.05; // light arc
+    private static final double AIR_DRAG = 0.99;
+    private static final double GROUND_DRAG = 0.6;
+    private static final double PULL_STRENGTH = 0.4; // per-tick acceleration toward anchor
+
+    // Tracked owner ID for client-side rendering
+    private static final TrackedData<Integer> OWNER_ID = DataTracker.registerData(GrapplingHookEntity.class, TrackedDataHandlerRegistry.INTEGER);
+    // Tracked impact/embedding state for client-side rendering
+    private static final TrackedData<Boolean> T_HOOKED = DataTracker.registerData(GrapplingHookEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
+    private static final TrackedData<Boolean> T_HAS_ORIENT = DataTracker.registerData(GrapplingHookEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
+    private static final TrackedData<Boolean> T_HAS_EMBED = DataTracker.registerData(GrapplingHookEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
+    private static final TrackedData<Float> T_IYAW = DataTracker.registerData(GrapplingHookEntity.class, TrackedDataHandlerRegistry.FLOAT);
+    private static final TrackedData<Float> T_IPITCH = DataTracker.registerData(GrapplingHookEntity.class, TrackedDataHandlerRegistry.FLOAT);
+    private static final TrackedData<Float> T_IOX = DataTracker.registerData(GrapplingHookEntity.class, TrackedDataHandlerRegistry.FLOAT);
+    private static final TrackedData<Float> T_IOY = DataTracker.registerData(GrapplingHookEntity.class, TrackedDataHandlerRegistry.FLOAT);
+    private static final TrackedData<Float> T_IOZ = DataTracker.registerData(GrapplingHookEntity.class, TrackedDataHandlerRegistry.FLOAT);
+    
+    // Match EntityFactory<GrapplingHookEntity> signature to satisfy EntityType.Builder.create
+    public GrapplingHookEntity(EntityType<GrapplingHookEntity> type, World world) {
+        //super(type, world);
+        //this.noClip = false;
+    }
+
+    public GrapplingHookEntity(World world, PlayerEntity owner) {
+        //this(ModEntities.GRAPPLING_HOOK, world);
+        //setOwner(owner);
+    }
+
+    public void setOwner(LivingEntity owner) {
+        this.ownerName = owner.getName().getString();
+        // Sync the owner entity id to clients for rope rendering
+        this.getDataTracker().set(OWNER_ID, owner.getId());
+    }
+
+    public int getOwnerEntityId() {
+        return this.getDataTracker().get(OWNER_ID);
+    }
+    
+    // Methods to access the fixed impact orientation
+    public boolean isHooked() {
+        return this.getWorld() != null && this.getWorld().isClient ? this.getDataTracker().get(T_HOOKED) : this.hooked;
+    }
+    
+    public boolean hasImpactOrientation() {
+        return this.getWorld() != null && this.getWorld().isClient ? this.getDataTracker().get(T_HAS_ORIENT) : this.hasImpactOrientation;
+    }
+    
+    public float getImpactYaw() {
+        return this.getWorld() != null && this.getWorld().isClient ? this.getDataTracker().get(T_IYAW) : this.impactYaw;
+    }
+    
+    public float getImpactPitch() {
+        return this.getWorld() != null && this.getWorld().isClient ? this.getDataTracker().get(T_IPITCH) : this.impactPitch;
+    }
+    
+    public boolean hasImpactEmbed() { return this.getWorld() != null && this.getWorld().isClient ? this.getDataTracker().get(T_HAS_EMBED) : hasImpactEmbed; }
+    public float getImpactOffsetX() { return this.getWorld() != null && this.getWorld().isClient ? this.getDataTracker().get(T_IOX) : impactOffsetX; }
+    public float getImpactOffsetY() { return this.getWorld() != null && this.getWorld().isClient ? this.getDataTracker().get(T_IOY) : impactOffsetY; }
+    public float getImpactOffsetZ() { return this.getWorld() != null && this.getWorld().isClient ? this.getDataTracker().get(T_IOZ) : impactOffsetZ; }
+
+    public Direction getImpactFace() { return impactFace; } // optional, if you want it for debugging/UI
+
+    @Nullable
+    public PlayerEntity getOwner() {
+        if (ownerName == null) return null;
+        // Server-side lookup by name (Client-side return null to avoid dependency on client classes here)
+        if (this.getWorld() != null && this.getWorld().getServer() != null) {
+            return this.getWorld().getServer().getPlayerManager().getPlayer(ownerName);
+        }
+        return null;
+    }
+
+    @Override
+    public void initDataTracker(DataTracker.Builder builder) {
+        // Initialize any data tracker entries if needed
+        // For a basic grappling hook, we might not need any tracked data
+        builder.add(OWNER_ID, -1);
+        builder.add(T_HOOKED, false);
+        builder.add(T_HAS_ORIENT, false);
+        builder.add(T_HAS_EMBED, false);
+        builder.add(T_IYAW, 0.0f);
+        builder.add(T_IPITCH, 0.0f);
+        builder.add(T_IOX, 0.0f);
+        builder.add(T_IOY, 0.0f);
+        builder.add(T_IOZ, 0.0f);
+    }
+    
+    @Override
+    public void tick() {
+        super.tick();
+        life++;
+        if (!this.getWorld().isClient && life > MAX_LIFE) {
+            this.discard();
+            return;
+        }
+
+        // --- A. Run the same basic physics on BOTH sides for smoothness ---
+        // (Server is still authoritative; client just predicts visuals.)
+        if (!hooked) {
+            // Apply gravity
+            Vec3d vel = this.getVelocity().add(0.0, -GRAVITY, 0.0);
+
+            // Use sub-steps for both sides (server & client) to keep paths consistent
+            final double maxStep = 0.25; // max distance per sub-step
+            final double dist = vel.length();
+            int steps = Math.max(1, (int)Math.ceil(dist / maxStep));
+            Vec3d stepVel = vel.multiply(1.0 / steps);
+
+            for (int i = 0; i < steps; i++) {
+                Vec3d start = this.getPos();
+                Vec3d end   = start.add(stepVel);
+
+                HitResult hit = this.getWorld().raycast(new RaycastContext(
+                    start, end,
+                    RaycastContext.ShapeType.COLLIDER,
+                    RaycastContext.FluidHandling.NONE,
+                    this
+                ));
+
+                if (hit.getType() == HitResult.Type.BLOCK) {
+                    BlockHitResult bhr = (BlockHitResult) hit;
+
+                    // 1) Anchor (exact hit point)
+                    this.anchor = hit.getPos();
+                    this.hooked = true;
+                    this.hookedTicks = 0;
+                    this.getDataTracker().set(T_HOOKED, true);
+
+                    // 2) Freeze motion & collisions
+                    this.setPosition(anchor.x, anchor.y, anchor.z);
+                    this.setVelocity(Vec3d.ZERO);
+                    this.noClip = true;
+
+                    // 3) Freeze orientation ONCE based on flight direction at impact
+                    if (!this.hasImpactOrientation) {
+                        Vec3d dirVec = stepVel;
+                        if (dirVec == null || dirVec.lengthSquared() < 1.0e-8) dirVec = this.getVelocity();
+                        Vec3d v = dirVec.normalize();
+                        double lenXZ = Math.sqrt(v.x * v.x + v.z * v.z);
+                        this.impactYaw = (float) Math.toDegrees(Math.atan2(v.x, v.z));
+                        this.impactPitch = (float) -Math.toDegrees(Math.atan2(v.y, lenXZ));
+
+                        this.hasImpactOrientation = true;
+                        this.getDataTracker().set(T_HAS_ORIENT, true);
+                        this.getDataTracker().set(T_IYAW, this.impactYaw);
+                        this.getDataTracker().set(T_IPITCH, this.impactPitch);
+                        // Lock rotation immediately at impact
+                        this.setYaw(this.impactYaw);
+                        this.setPitch(this.impactPitch);
+                    }
+
+                    // 4) Record the block face and a *fixed* embed offset so it never changes later
+                    if (!this.hasImpactEmbed) {
+                        this.impactFace = bhr.getSide();
+                        // Nudge slightly into the face to avoid floating
+                        float nudge = 1.0f / 16.0f;
+
+                        Vec3i n = this.impactFace.getVector(); // (nx, ny, nz) in [-1,0,1]
+                        this.impactOffsetX = -nudge * n.getX();
+                        this.impactOffsetY = -nudge * n.getY();
+                        this.impactOffsetZ = -nudge * n.getZ();
+
+                        this.hasImpactEmbed = true;
+                        this.getDataTracker().set(T_HAS_EMBED, true);
+                        this.getDataTracker().set(T_IOX, this.impactOffsetX);
+                        this.getDataTracker().set(T_IOY, this.impactOffsetY);
+                        this.getDataTracker().set(T_IOZ, this.impactOffsetZ);
+                    }
+                } else {
+                    // Move a small step
+                    this.move(MovementType.SELF, stepVel);
+                }
+            }
+
+            // Drag after all sub-steps
+            double drag = this.isOnGround() ? GROUND_DRAG : AIR_DRAG;
+            this.setVelocity(this.getVelocity().add(0.0, -GRAVITY, 0.0).multiply(drag));
+
+            // --- B. Server-only bits below ---
+            if (this.getWorld().isClient) {
+                // Client is done: predicted move already applied above.
+                return;
+            }
+
+            // Server-side authoritative; clients will interpolate from velocity updates normally.
+        } else {
+            // Hooked: keep at anchor (both sides so it doesn’t jitter client-side)
+        	if (this.hooked && this.anchor != null) {
+        	    this.setPosition(anchor.x, anchor.y, anchor.z);
+        	    this.setVelocity(Vec3d.ZERO);
+                if (this.hasImpactOrientation) {
+                    this.setYaw(this.impactYaw);
+                    this.setPitch(this.impactPitch);
+                }
+        	}
+
+            hookedTicks++;
+
+            // Server-only: pulling logic
+            if (!this.getWorld().isClient) {
+                PlayerEntity owner = getOwner();
+                if (owner == null || !owner.isAlive()) {
+                    this.discard();
+                    return;
+                }
+
+                Vec3d ownerPos = owner.getPos().add(0, owner.getStandingEyeHeight() * 0.5, 0);
+                Vec3d toAnchor = anchor.subtract(ownerPos);
+                double distance = toAnchor.length();
+
+                if (distance < 1.3 || hookedTicks > MAX_LIFE) {
+                    this.discard();
+                    return;
+                }
+
+                Vec3d dir = distance > 0 ? toAnchor.normalize() : Vec3d.ZERO;
+                double strength = Math.min(PULL_STRENGTH, Math.max(0.08, distance * 0.05));
+
+                Vec3d newVel = owner.getVelocity().multiply(0.90).add(dir.multiply(strength));
+                owner.setVelocity(newVel);
+                owner.fallDistance = 0.0F;
+                owner.velocityModified = true;
+            }
+        }
+    }
+
+    protected void readCustomDataFromNbt(NbtCompound nbt) {
+        this.life = nbt.getInt("Life").orElse(0);
+        this.ownerName = nbt.contains("Owner") ? nbt.getString("Owner").orElse(null) : null;
+        this.hooked = nbt.getBoolean("Hooked").orElse(false);
+        if (this.hooked && nbt.contains("AnchorX")) {
+            this.anchor = new Vec3d(
+                nbt.getDouble("AnchorX").orElse(0.0),
+                nbt.getDouble("AnchorY").orElse(0.0),
+                nbt.getDouble("AnchorZ").orElse(0.0)
+            );
+        }
+
+        this.hasImpactOrientation = nbt.getBoolean("HasImpactOrientation").orElse(false);
+        if (this.hasImpactOrientation) {
+            this.impactYaw   = nbt.getFloat("ImpactYaw").orElse(0.0f);
+            this.impactPitch = nbt.getFloat("ImpactPitch").orElse(0.0f);
+        }
+
+        this.hasImpactEmbed = nbt.getBoolean("HasImpactEmbed").orElse(false);
+        if (this.hasImpactEmbed) {
+            this.impactOffsetX = nbt.getFloat("ImpactOffsetX").orElse(0.0f);
+            this.impactOffsetY = nbt.getFloat("ImpactOffsetY").orElse(0.0f);
+            this.impactOffsetZ = nbt.getFloat("ImpactOffsetZ").orElse(0.0f);
+            if (nbt.contains("ImpactFace")) {
+                try {
+                    String face = nbt.getString("ImpactFace").orElse(null);
+                    if (face != null) {
+                        this.impactFace = Direction.valueOf(face.toUpperCase());
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+
+    protected void writeCustomDataToNbt(NbtCompound nbt) {
+        nbt.putInt("Life", this.life);
+        if (ownerName != null) nbt.putString("Owner", ownerName);
+        nbt.putBoolean("Hooked", this.hooked);
+        if (this.hooked && this.anchor != null) {
+            nbt.putDouble("AnchorX", this.anchor.x);
+            nbt.putDouble("AnchorY", this.anchor.y);
+            nbt.putDouble("AnchorZ", this.anchor.z);
+        }
+
+        nbt.putBoolean("HasImpactOrientation", this.hasImpactOrientation);
+        if (this.hasImpactOrientation) {
+            nbt.putFloat("ImpactYaw", this.impactYaw);
+            nbt.putFloat("ImpactPitch", this.impactPitch);
+        }
+
+        nbt.putBoolean("HasImpactEmbed", this.hasImpactEmbed);
+        if (this.hasImpactEmbed) {
+            nbt.putFloat("ImpactOffsetX", this.impactOffsetX);
+            nbt.putFloat("ImpactOffsetY", this.impactOffsetY);
+            nbt.putFloat("ImpactOffsetZ", this.impactOffsetZ);
+            if (this.impactFace != null) nbt.putString("ImpactFace", this.impactFace.asString());
+        }
+    }
+}

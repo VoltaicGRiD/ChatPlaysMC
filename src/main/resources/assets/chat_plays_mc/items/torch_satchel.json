@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "chat_plays_mc:item/grappling_hook"
+    "model": "chat_plays_mc:item/torch_satchel"
   }
 }

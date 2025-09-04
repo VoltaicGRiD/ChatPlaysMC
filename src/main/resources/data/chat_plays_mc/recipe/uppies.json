@@ -1,0 +1,17 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "ABA",
+        " B ",
+        " C "
+    ],
+    "key": {
+        "A": "minecraft:feather",
+        "B": "minecraft:ender_pearl",
+        "C": "minecraft:green_dye"
+    },
+    "result": {
+        "id": "chat_plays_mc:uppies",
+        "count": 4
+    }
+}

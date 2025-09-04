@@ -58,6 +58,8 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Map;
+import java.util.HashMap;
 import net.minecraft.screen.AbstractFurnaceScreenHandler;
 import com.voltaicgrid.chatplaysmc.client.LockOnManager;
 import com.voltaicgrid.chatplaysmc.mixin.HandledScreenAccessor;
@@ -66,14 +68,20 @@ import com.voltaicgrid.chatplaysmc.mixin.RecipeBookWidgetAccessor;
 import com.voltaicgrid.chatplaysmc.mixin.RecipeBookResultsAccessor;
 import com.voltaicgrid.chatplaysmc.mixin.ScreenAccessor;
 import com.voltaicgrid.chatplaysmc.config.ConfigManager;
+import com.voltaicgrid.chatplaysmc.data.LastDeathState;
 import net.minecraft.client.gui.screen.recipebook.RecipeBookWidget;
 import net.minecraft.recipe.NetworkRecipeId;
 import net.minecraft.client.gui.screen.*;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory;
+import com.voltaicgrid.chatplaysmc.AritsukiEntity;
+import com.voltaicgrid.chatplaysmc.client.AritsukiEntityModel;
+import com.voltaicgrid.chatplaysmc.client.AritsukiEntityRenderer;
+import com.voltaicgrid.chatplaysmc.client.AritsukiGeoRenderer;
 
 public class ChatPlaysMcClient implements ClientModInitializer {
     public static final EntityModelLayer GRAPPLING_HOOK_LAYER = new EntityModelLayer(Identifier.of("chat_plays_mc", "grappling_hook"), "main");
+    public static final EntityModelLayer MODEL_ARITSUKI_LAYER = new EntityModelLayer(Identifier.of("chat_plays_mc", "aritsuki"), "main");
     
     private static KeyBinding lookUpKey;
     private static KeyBinding lookDownKey;
@@ -104,6 +112,9 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     private static boolean isSwimming = false;
     private static int swimExitBuffer = 0; // Buffer to prevent immediate swim cancellation
 
+    // Death tracking
+    private static boolean wasAlive = true; // Track if player was alive last tick
+    
     //private static Map<String, Boolean> objectives = new HashMap<>(); // Track objectives and their completion state
     
     // Camera lerp variables for smooth movement
@@ -115,16 +126,16 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     public static final String MODID = "chat_plays_mc";
     public static final ConfigManager CONFIG = ConfigManager.createAndLoad();
     
+    public static Map<String, Integer> PauseManager = new HashMap<>(); // Track paused users and their pause durations
+    
     @Override
     public void onInitializeClient() {
-        // Register the food satchel screen
+        
+    	EntityRendererRegistry.register(ModEntities.ARITSUKI, AritsukiGeoRenderer::new);
+ 
+        EntityModelLayerRegistry.registerModelLayer(MODEL_ARITSUKI_LAYER, AritsukiEntityModel::getTexturedModelData);
     	
-        // Register entity renderers
-        EntityRendererRegistry.register(ModEntities.GRAPPLING_HOOK, GrapplingHookRenderer::new);
-        
-        // Register model layers
-        EntityModelLayerRegistry.registerModelLayer(GRAPPLING_HOOK_LAYER, GrapplingHookEntityModel::createModelData);
-        
+        // Register Twitch client and event handlers
         ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
         	
         	twitchClient = TwitchClientBuilder.builder()
@@ -135,62 +146,54 @@ public class ChatPlaysMcClient implements ClientModInitializer {
         	twitchClient.getChat().joinChannel("voltaicgrid");
 
         	twitchClient.getEventManager().onEvent(ChannelMessageEvent.class, event -> {
-//        		boolean isModerator = event.getUser().isModerator() || event.getUser().isBroadcaster();
-//        		
-//        		final Matcher objectiveMatcher = Pattern.compile("\\b(obj|objective)\\s+(complete|add)\\s*(\\w+)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-//        		if (objectiveMatcher.find()) {
-//					String action = objectiveMatcher.group(2).toLowerCase();
-//					String objectiveName = objectiveMatcher.group(3);
-//					
-//					if (action.equals("add")) {
-//						// Handle addition of an objective
-//						if (objectiveName != null && !objectiveName.isEmpty()) {
-//							System.out.println("Objective added: " + objectiveName);
-//							objectives.put(objectiveName.toLowerCase(Locale.ROOT), false);
-//						} else {
-//							System.out.println("Invalid objective name provided for addition.");
-//						}
-//					} else if (!isModerator) {
-//						System.out.println("Only moderators can complete objectives.");
-//						return;
-//					} else if (objectiveName == null || objectiveName.isEmpty()) {
-//						System.out.println("No objective name provided for completion.");
-//						return;
-//					}
-//					
-//					if (action.equals("complete")) {
-//						// Handle completion of an objective
-//						if (objectiveName != null && !objectiveName.isEmpty()) {
-//							System.out.println("Objective completed: " + objectiveName);
-//							objectives.put(objectiveName.toLowerCase(Locale.ROOT), true);
-//						} else {
-//							System.out.println("Invalid objective name provided for completion.");
-//						}
-//					}
-//        		}
+        		// Debug: Print the message to see what we're processing
+                System.out.println("Processing message from " + event.getUser().getName() + ": " + event.getMessage());
+                
+                // Check if the current user is paused FIRST (case-insensitive)
+                String userName = event.getUser().getName().toLowerCase(); // Convert to lowercase for consistent matching
+                if (PauseManager.containsKey(userName)) {
+					// User is paused, decrement their pause counter
+					int remaining = PauseManager.get(userName) - 1;
+					if (remaining <= 0) {
+						PauseManager.remove(userName);
+						System.out.println("User " + event.getUser().getName() + " is no longer paused.");
+					} else {
+						PauseManager.put(userName, remaining);
+						System.out.println("User " + event.getUser().getName() + " is paused for " + remaining + " more messages. Skipping command processing.");
+					}
+					return; // Skip processing further commands for this message
+				}
 
-        		
                 final Matcher movementMatcher = Pattern.compile("\\b(w|s|a|d|forward|backward|left|right|jump|sprint|sneak)\\s*(\\d+(?:\\.\\d+)?)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher lookMatcher = Pattern.compile("\\b(lu|ld|ll|lr|look\\s+up|look\\s+down|look\\s+left|look\\s+right)\\s*(\\d+(?:\\.\\d+)?)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher clickMatcher = Pattern.compile("\\b(rc|lc|dc|right\\s+click|left\\s+click|double\\s*click)\\s*(\\d+(?:\\.\\d+)?)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher screenMatcher = Pattern.compile("\\b(inv|inventory|close|exit)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-                final Matcher slotMatcher = Pattern.compile("\\b(slot)\\s*(\\d+)\\s*(all|move|craft|throw|one)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher slotMatcher = Pattern.compile("\\b(slot)\\s*(\\d+)\\s*(all|move|craft|throw|one|hover)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher buttonMatcher = Pattern.compile("\\b(button)\\s*(\\d+)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher lockonMatcher = Pattern.compile("\\b(lock)\\s*(on|off)\\s*(\\w*)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher targetMatcher = Pattern.compile("\\b(target|lock)\\s*(next|previous|prev|nearest)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher toggleMatcher = Pattern.compile("\\b(toggle)\\s*(attack|break|place)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher resetMatcher = Pattern.compile("\\breset\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
-                // Add craft-by-name matcher (supports minecraft:id or plain name)
                 final Matcher craftByNameMatcher = Pattern.compile("\\bcraft\\s+([a-z0-9_:\\-]+)(?:\\s+(all|max|one|1|\\d+))?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher craftIndexMatcher = Pattern.compile("\\bcraft\\s+(\\d+)\\s*(all|max)?\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher rbSearchMatcher = Pattern.compile("\\brb\\s+search\\s+(.+)", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher swimMatcher = Pattern.compile("\\b(swim|dive)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher extraMatcher = Pattern.compile("\\b(f3|swap|fov)\\s*(\\d+)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
+                final Matcher pauseMatcher = Pattern.compile("\\b(pause)\\s+([a-z0-9_:\\\\-]+)\\b", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 final Matcher buildMatcher = Pattern.compile("\\b(build)\\s*(tower|mine|shaft)\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(event.getMessage());
                 
                 // Debug: Print the message to see what we're processing
                 System.out.println("Processing message: " + event.getMessage());
             	
+                if (pauseMatcher.find()) {
+                	// Pause specified user for a stackable 5 messages (case-insensitive)
+                	String user = pauseMatcher.group(2).toLowerCase(); // Convert to lowercase for consistent storage
+                	
+            		PauseManager.put(user, PauseManager.getOrDefault(user, 0) + 5);
+					System.out.println("Pausing user " + pauseMatcher.group(2) + " for 5 messages. Total pause duration: " + PauseManager.get(user));
+					return; // Skip processing further commands for this message
+                }
+                
                 if (buildMatcher.find()) {
                 	String cmd = buildMatcher.group(2).toLowerCase();
                 	int count = Integer.parseInt(buildMatcher.group(3));
@@ -308,9 +311,29 @@ public class ChatPlaysMcClient implements ClientModInitializer {
                         case "jump" -> {
                             
                             client.execute(() -> {
-                                if (client.player != null) {
-                                    client.player.jump();
-                                }
+                            	if (CONFIG.useOldJumpMechanics()) {
+                            		if (client.player != null) {
+                                        client.player.jump();
+                                    }
+                            	} else {
+                            		if (client.options != null) {
+										client.options.jumpKey.setPressed(true);
+										
+										Thread jumpThread = new Thread(() -> {
+											try {
+												Thread.sleep(50); // Hold jump for 50ms
+											} catch (InterruptedException e) {
+												// Ignore
+											}
+											client.execute(() -> {
+												if (client.options != null) {
+													client.options.jumpKey.setPressed(false);
+												}
+											});
+										});
+										jumpThread.start(); // Start the thread!
+									}
+                            	}
                             });
                         }
                         case "sneak" -> {
@@ -425,23 +448,34 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     				String cmd = screenMatcher.group(1).toLowerCase();
     				
     				switch (cmd) {
-    					case "inv", "inventory" -> {
-    						
-    						client.execute(() -> {
-    							if (client.player != null && client.currentScreen == null) {
-    								client.setScreen(new net.minecraft.client.gui.screen.ingame.InventoryScreen(client.player));
-    							}
-    						});
-    					}
-    					case "close", "exit" -> {
-    						
-    						client.execute(() -> {
-    							if (client.currentScreen != null) {
-    								client.setScreen(null);
-    							}
-    						});
-    					}
-    				}
+	    			    case "inv", "inventory" -> {
+	    			        client.execute(() -> {
+	    			            if (client.player == null) return;
+	
+	    			            // If a server-backed container is open, close it properly first
+	    			            if (client.currentScreen instanceof net.minecraft.client.gui.screen.ingame.HandledScreen<?> ) {
+	    			                client.player.closeHandledScreen(); // sends CloseHandledScreenC2SPacket
+	    			            }
+	
+	    			            // Now open the inventory screen
+	    			            if (client.currentScreen == null) {
+	    			                client.setScreen(new net.minecraft.client.gui.screen.ingame.InventoryScreen(client.player));
+	    			            }
+	    			        });
+	    			    }
+	
+	    			    case "close", "exit" -> {
+	    			        client.execute(() -> {
+	    			            if (client.player == null) return;
+	
+	    			            if (client.currentScreen instanceof net.minecraft.client.gui.screen.ingame.HandledScreen<?> ) {
+	    			                client.player.closeHandledScreen(); // server + client
+	    			            } else if (client.currentScreen != null) {
+	    			                client.setScreen(null); // purely client-side screens (e.g., Advancements)
+	    			            }
+	    			        });
+	    			    }
+	    			}
             	}
     			
     			if (slotMatcher.find()) {
@@ -500,7 +534,7 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     									
     									net.minecraft.screen.slot.SlotActionType actionType;
     									int button = 0;
-    									
+
     									switch (finalCmd) {
     										case "move" -> {
     											actionType = net.minecraft.screen.slot.SlotActionType.QUICK_MOVE;
@@ -826,6 +860,9 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     }
 
     private void onClientTick(MinecraftClient client) {
+        // Note: Death position tracking removed - DataTracker is not suitable for this purpose
+        // Consider using a different approach like storing in a static variable or mod data if needed
+
     	if (isSwimming) {
     		var player = client.player;
     		
@@ -853,6 +890,26 @@ public class ChatPlaysMcClient implements ClientModInitializer {
     	}
     	
         if (client.player == null || client.interactionManager == null || client.world == null) return;
+
+        // Death tracking - detect when player dies and store position
+//        boolean isAlive = !client.player.isDead() && client.player.getHealth() > 0;
+//        if (wasAlive && !isAlive) {
+//            // Player just died - store death position
+//            try {
+//                // Send packet to server to store death position
+//                // Note: This requires server-side implementation to handle the death position storage
+//                BlockPos deathPos = client.player.getBlockPos();
+//                float yaw = client.player.getYaw();
+//                float pitch = client.player.getPitch();
+//                
+//                System.out.println("Player died at: " + deathPos + " (yaw: " + yaw + ", pitch: " + pitch + ")");
+//                
+//                LastDeathState e = LastDeathState.                
+//            } catch (Exception e) {
+//                System.out.println("Error storing death position: " + e.getMessage());
+//            }
+//        }
+//        wasAlive = isAlive;
 
         // Handle smooth camera interpolation
         if (isLerping && client.player != null) {
@@ -1141,7 +1198,29 @@ public class ChatPlaysMcClient implements ClientModInitializer {
 
     private boolean attemptPlaceOrUseOnce(MinecraftClient client) {
         if (client.player == null || client.interactionManager == null) return false;
-        // Try placing on the targeted block face first
+        
+        // Try interacting with targeted entity first
+        if (client.crosshairTarget instanceof EntityHitResult ehr && ehr.getType() == HitResult.Type.ENTITY) {
+            Entity entity = ehr.getEntity();
+            if (entity != null) {
+                ActionResult res = client.interactionManager.interactEntity(client.player, entity, Hand.MAIN_HAND);
+                if (res.isAccepted()) {
+                    client.player.swingHand(Hand.MAIN_HAND);
+                    return true;
+                }
+                // Try interaction at specific hit position if basic interaction didn't work
+                Vec3d hitPos = ehr.getPos();
+                if (hitPos != null) {
+                    res = client.interactionManager.interactEntityAtLocation(client.player, entity, ehr, Hand.MAIN_HAND);
+                    if (res.isAccepted()) {
+                        client.player.swingHand(Hand.MAIN_HAND);
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        // Try placing on the targeted block face
         if (client.crosshairTarget instanceof BlockHitResult bhr && bhr.getType() == HitResult.Type.BLOCK) {
             ActionResult res = client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, bhr);
             if (res.isAccepted()) {
@@ -1149,6 +1228,7 @@ public class ChatPlaysMcClient implements ClientModInitializer {
                 return true;
             }
         }
+        
         // If not looking at a block, try a short raycast to find one in reach
         HitResult hr = client.player.raycast(5.0D, 0.0F, false);
         if (hr instanceof BlockHitResult cast && cast.getType() == HitResult.Type.BLOCK) {
@@ -1158,6 +1238,7 @@ public class ChatPlaysMcClient implements ClientModInitializer {
                 return true;
             }
         }
+        
         // Fallback to using the item in hand (may place if possible)
         ActionResult res = client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
         if (res.isAccepted()) {

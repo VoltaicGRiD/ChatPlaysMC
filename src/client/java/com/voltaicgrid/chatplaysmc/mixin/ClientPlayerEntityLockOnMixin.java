@@ -289,12 +289,48 @@ public abstract class ClientPlayerEntityLockOnMixin {
            return null;
        }
 
-       Identifier id = Identifier.tryParse(typeKey.toLowerCase(Locale.ROOT));
-       if (id == null) {
-           return null; // not a valid identifier
+       String lowerKey = typeKey.toLowerCase(Locale.ROOT);
+       
+       // First try exact identifier parsing
+       Identifier id = Identifier.tryParse(lowerKey);
+       if (id != null) {
+           EntityType<?> type = Registries.ENTITY_TYPE.get(id);
+           if (type != null && type != EntityType.PIG) { // PIG is the default/fallback
+               return type;
+           }
+       }
+       
+       // If that fails, try with common namespaces
+       String[] namespacesToTry = {
+           "chat_plays_mc:" + lowerKey,
+           "minecraft:" + lowerKey
+       };
+       
+       for (String namespacedKey : namespacesToTry) {
+           Identifier namespacedId = Identifier.tryParse(namespacedKey);
+           if (namespacedId != null) {
+               EntityType<?> type = Registries.ENTITY_TYPE.get(namespacedId);
+               if (type != null && type != EntityType.PIG) {
+                   return type;
+               }
+           }
+       }
+       
+       // If still no match, try searching through all registered entity types
+       for (EntityType<?> entityType : Registries.ENTITY_TYPE) {
+           Identifier registryId = Registries.ENTITY_TYPE.getId(entityType);
+           if (registryId != null) {
+               String fullName = registryId.toString().toLowerCase();
+               String pathOnly = registryId.getPath().toLowerCase();
+               
+               // Check if the key matches the full name or just the path
+               if (fullName.contains(lowerKey) || pathOnly.contains(lowerKey)) {
+                   return entityType;
+               }
+           }
        }
 
-       return Registries.ENTITY_TYPE.get(id);
+       return null;
    }
 
    @Unique

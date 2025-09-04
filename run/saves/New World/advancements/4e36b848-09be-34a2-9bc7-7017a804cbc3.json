@@ -1,40 +1,16 @@
 {
   "minecraft:recipes/decorations/crafting_table": {
     "criteria": {
-      "unlock_right_away": "2025-08-18 06:45:10 -0600"
+      "unlock_right_away": "2025-08-22 22:49:38 -0600"
     },
     "done": true
   },
   "minecraft:adventure/adventuring_time": {
     "criteria": {
-      "minecraft:forest": "2025-08-18 06:47:39 -0600",
-      "minecraft:plains": "2025-08-18 06:45:11 -0600"
+      "minecraft:forest": "2025-08-22 22:49:39 -0600",
+      "minecraft:birch_forest": "2025-08-22 22:49:46 -0600"
     },
     "done": false
-  },
-  "minecraft:adventure/root": {
-    "criteria": {
-      "killed_by_something": "2025-08-18 06:45:49 -0600"
-    },
-    "done": true
-  },
-  "minecraft:recipes/food/cake": {
-    "criteria": {
-      "has_egg": "2025-08-18 06:48:38 -0600"
-    },
-    "done": true
-  },
-  "minecraft:recipes/decorations/chest": {
-    "criteria": {
-      "has_lots_of_items": "2025-08-18 06:48:18 -0600"
-    },
-    "done": true
-  },
-  "minecraft:story/shiny_gear": {
-    "criteria": {
-      "diamond_boots": "2025-08-18 06:48:10 -0600"
-    },
-    "done": true
   },
   "DataVersion": 4440
 }

@@ -11,6 +11,7 @@ public class ConfigManagerModel {
 	
 	@SectionHeader("Mechanics")
 	public boolean useOldTowering = false;
+	public boolean useOldJumpMechanics = false;
 	public boolean showHudInformation = true;
 	public boolean enableLockOn = true;
 	public boolean enableSwimCommands = true;

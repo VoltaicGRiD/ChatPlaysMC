@@ -1,0 +1,25 @@
+{
+  "criteria": {
+    "ender_pearl": {
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:ender_pearl"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "requirements": [
+    [
+      "ender_pearl"
+    ]
+  ],
+	"rewards": {
+		"recipes": [
+			"chat_plays_mc:uppies"
+		] 
+	},
+  "sends_telemetry_event": true
+}

@@ -1,19 +1,19 @@
 {
-  "minecraft:recipes/decorations/crafting_table": {
+  "minecraft:recipes/misc/yellow_dye_from_wildflowers": {
     "criteria": {
-      "unlock_right_away": "2025-08-21 00:11:44 -0600"
+      "has_wildflowers": "2025-08-22 20:05:55 -0600"
     },
     "done": true
   },
-  "minecraft:adventure/root": {
+  "minecraft:recipes/decorations/crafting_table": {
     "criteria": {
-      "killed_by_something": "2025-08-21 00:12:07 -0600"
+      "unlock_right_away": "2025-08-22 20:05:55 -0600"
     },
     "done": true
   },
   "minecraft:adventure/adventuring_time": {
     "criteria": {
-      "minecraft:plains": "2025-08-21 00:11:44 -0600"
+      "minecraft:birch_forest": "2025-08-22 20:05:56 -0600"
     },
     "done": false
   },

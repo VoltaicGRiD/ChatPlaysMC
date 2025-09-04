@@ -16,6 +16,7 @@ public class ConfigManager extends ConfigWrapper<com.voltaicgrid.chatplaysmc.con
 
     private final Option<java.lang.String> twitchChannel = this.optionForKey(this.keys.twitchChannel);
     private final Option<java.lang.Boolean> useOldTowering = this.optionForKey(this.keys.useOldTowering);
+    private final Option<java.lang.Boolean> useOldJumpMechanics = this.optionForKey(this.keys.useOldJumpMechanics);
     private final Option<java.lang.Boolean> showHudInformation = this.optionForKey(this.keys.showHudInformation);
     private final Option<java.lang.Boolean> enableLockOn = this.optionForKey(this.keys.enableLockOn);
     private final Option<java.lang.Boolean> enableSwimCommands = this.optionForKey(this.keys.enableSwimCommands);
@@ -56,6 +57,14 @@ public class ConfigManager extends ConfigWrapper<com.voltaicgrid.chatplaysmc.con
 
     public void useOldTowering(boolean value) {
         useOldTowering.set(value);
+    }
+
+    public boolean useOldJumpMechanics() {
+        return useOldJumpMechanics.value();
+    }
+
+    public void useOldJumpMechanics(boolean value) {
+        useOldJumpMechanics.set(value);
     }
 
     public boolean showHudInformation() {
@@ -102,6 +111,7 @@ public class ConfigManager extends ConfigWrapper<com.voltaicgrid.chatplaysmc.con
     public static class Keys {
         public final Option.Key twitchChannel = new Option.Key("twitchChannel");
         public final Option.Key useOldTowering = new Option.Key("useOldTowering");
+        public final Option.Key useOldJumpMechanics = new Option.Key("useOldJumpMechanics");
         public final Option.Key showHudInformation = new Option.Key("showHudInformation");
         public final Option.Key enableLockOn = new Option.Key("enableLockOn");
         public final Option.Key enableSwimCommands = new Option.Key("enableSwimCommands");

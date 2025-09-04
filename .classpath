@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
-	<classpathentry kind="src" output="bin/main" path="src/main/java">
+	<classpathentry kind="src" output="bin/test" path="src/test/java">
+		<attributes>
+			<attribute name="gradle_scope" value="test"/>
+			<attribute name="gradle_used_by_scope" value="test"/>
+			<attribute name="test" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="src" output="bin/main" path="src/main/resources">
 		<attributes>
 			<attribute name="gradle_scope" value="main"/>
 			<attribute name="gradle_used_by_scope" value="main,test,client"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="src" output="bin/main" path="src/main/resources">
+	<classpathentry kind="src" output="bin/main" path="src/main/java">
 		<attributes>
 			<attribute name="gradle_scope" value="main"/>
 			<attribute name="gradle_used_by_scope" value="main,test,client"/>
@@ -18,13 +25,13 @@
 			<attribute name="gradle_used_by_scope" value="main,test,client"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="src" output="bin/client" path="src/client/java">
+	<classpathentry kind="src" output="bin/client" path="src/client/resources">
 		<attributes>
 			<attribute name="gradle_scope" value="client"/>
 			<attribute name="gradle_used_by_scope" value="test,client"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="src" output="bin/client" path="src/client/resources">
+	<classpathentry kind="src" output="bin/client" path="src/client/java">
 		<attributes>
 			<attribute name="gradle_scope" value="client"/>
 			<attribute name="gradle_used_by_scope" value="test,client"/>
@@ -35,6 +42,12 @@
 	<classpathentry kind="src" path="bin/generated-sources/annotations">
 		<attributes>
 			<attribute name="optional" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="src" output="bin/test" path="bin/generated-test-sources/annotations">
+		<attributes>
+			<attribute name="optional" value="true"/>
+			<attribute name="test" value="true"/>
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="output" path="bin/default"/>

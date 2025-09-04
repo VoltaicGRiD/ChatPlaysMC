@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "id": "chat_plays_mc",
-  "version": "${version}",
+  "version": "1.1.0",
   "name": "Chat Plays MC",
   "description": "Let your Twitch chat play Minecraft! This mod allows viewers to control the game through chat commands, creating a unique and interactive experience.",
-  "authors": ["You"],
+  "authors": ["VoltaicGRiD"],
   "contact": {
-    "sources": "https://example.com/chat_plays_mc"
+    "sources": "https://github.com/voltaicgrid/chat_plays_mc"
   },
   "license": "MIT",
   "icon": "assets/chat_plays_mc/icon.png",

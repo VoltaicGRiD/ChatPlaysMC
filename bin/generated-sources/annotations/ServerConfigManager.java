@@ -22,6 +22,7 @@ public class ServerConfigManager extends ConfigWrapper<com.voltaicgrid.chatplays
     private final Option<java.lang.Boolean> enablePlohtArmor = this.optionForKey(this.keys.enablePlohtArmor);
     private final Option<java.lang.Boolean> enableShaftBuilder = this.optionForKey(this.keys.enableShaftBuilder);
     private final Option<java.lang.Integer> shaftBuilderDepth = this.optionForKey(this.keys.shaftBuilderDepth);
+    private final Option<java.lang.Boolean> enableUppies = this.optionForKey(this.keys.enableUppies);
 
     private ServerConfigManager() {
         super(com.voltaicgrid.chatplaysmc.config.ServerConfigManagerModel.class);
@@ -107,6 +108,14 @@ public class ServerConfigManager extends ConfigWrapper<com.voltaicgrid.chatplays
         shaftBuilderDepth.set(value);
     }
 
+    public boolean enableUppies() {
+        return enableUppies.value();
+    }
+
+    public void enableUppies(boolean value) {
+        enableUppies.set(value);
+    }
+
 
     public static class Keys {
         public final Option.Key enableOrio = new Option.Key("enableOrio");
@@ -117,6 +126,7 @@ public class ServerConfigManager extends ConfigWrapper<com.voltaicgrid.chatplays
         public final Option.Key enablePlohtArmor = new Option.Key("enablePlohtArmor");
         public final Option.Key enableShaftBuilder = new Option.Key("enableShaftBuilder");
         public final Option.Key shaftBuilderDepth = new Option.Key("shaftBuilderDepth");
+        public final Option.Key enableUppies = new Option.Key("enableUppies");
     }
 }
 

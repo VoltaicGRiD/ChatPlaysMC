@@ -1,37 +1,88 @@
 {
-  "minecraft:recipes/misc/charcoal": {
+  "minecraft:recipes/building_blocks/copper_block": {
     "criteria": {
-      "has_log": "2025-08-17 23:49:39 -0600"
+      "has_copper_ingot": "2025-08-23 15:15:28 -0600"
+    },
+    "done": true
+  },
+  "minecraft:recipes/tools/brush": {
+    "criteria": {
+      "has_copper_ingot": "2025-08-23 15:15:28 -0600"
+    },
+    "done": true
+  },
+  "minecraft:recipes/redstone/copper_door": {
+    "criteria": {
+      "has_copper_ingot": "2025-08-23 15:15:28 -0600"
     },
     "done": true
   },
   "minecraft:recipes/decorations/crafting_table": {
     "criteria": {
-      "unlock_right_away": "2025-08-17 23:49:39 -0600"
+      "unlock_right_away": "2025-08-23 15:15:28 -0600"
     },
     "done": true
   },
-  "minecraft:recipes/building_blocks/oak_planks": {
+  "minecraft:recipes/decorations/chest": {
     "criteria": {
-      "has_logs": "2025-08-17 23:49:39 -0600"
+      "has_lots_of_items": "2025-08-23 15:15:28 -0600"
+    },
+    "done": true
+  },
+  "minecraft:story/shiny_gear": {
+    "criteria": {
+      "diamond_helmet": "2025-08-23 15:15:28 -0600"
+    },
+    "done": true
+  },
+  "minecraft:recipes/redstone/dispenser": {
+    "criteria": {
+      "has_bow": "2025-08-23 15:15:28 -0600"
+    },
+    "done": true
+  },
+  "minecraft:adventure/root": {
+    "criteria": {
+      "killed_by_something": "2025-08-23 15:15:43 -0600"
+    },
+    "done": true
+  },
+  "minecraft:recipes/redstone/lightning_rod": {
+    "criteria": {
+      "has_copper_ingot": "2025-08-23 15:15:28 -0600"
+    },
+    "done": true
+  },
+  "minecraft:adventure/kill_all_mobs": {
+    "criteria": {
+      "minecraft:skeleton": "2025-08-23 15:15:59 -0600",
+      "minecraft:stray": "2025-08-23 15:16:06 -0600",
+      "minecraft:husk": "2025-08-23 15:16:04 -0600"
+    },
+    "done": false
+  },
+  "minecraft:recipes/misc/bone_meal": {
+    "criteria": {
+      "has_bone": "2025-08-23 15:15:28 -0600"
+    },
+    "done": true
+  },
+  "minecraft:adventure/kill_a_mob": {
+    "criteria": {
+      "minecraft:skeleton": "2025-08-23 15:15:59 -0600"
     },
     "done": true
   },
   "minecraft:adventure/adventuring_time": {
     "criteria": {
-      "minecraft:plains": "2025-08-17 23:49:40 -0600"
+      "minecraft:beach": "2025-08-23 15:15:29 -0600",
+      "minecraft:forest": "2025-08-23 15:15:45 -0600"
     },
     "done": false
   },
-  "minecraft:recipes/building_blocks/oak_wood": {
+  "minecraft:recipes/redstone/copper_trapdoor": {
     "criteria": {
-      "has_log": "2025-08-17 23:49:39 -0600"
-    },
-    "done": true
-  },
-  "minecraft:recipes/misc/mojang_banner_pattern": {
-    "criteria": {
-      "has_enchanted_golden_apple": "2025-08-17 23:49:39 -0600"
+      "has_copper_ingot": "2025-08-23 15:15:28 -0600"
     },
     "done": true
   },

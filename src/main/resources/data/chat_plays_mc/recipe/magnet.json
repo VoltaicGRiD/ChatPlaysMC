@@ -1,0 +1,16 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "A A",
+        "B B",
+        "BBB"
+    ],
+    "key": {
+        "A": "minecraft:redstone",
+        "B": "minecraft:iron_ingot",
+    },
+    "result": {
+        "id": "chat_plays_mc:magnet",
+        "count": 1
+    }
+}

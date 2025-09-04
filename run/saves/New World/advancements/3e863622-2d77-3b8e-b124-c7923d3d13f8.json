@@ -1,51 +1,40 @@
 {
   "minecraft:recipes/decorations/crafting_table": {
     "criteria": {
-      "unlock_right_away": "2025-08-18 04:41:10 -0600"
+      "unlock_right_away": "2025-08-23 14:55:59 -0600"
     },
     "done": true
   },
-  "minecraft:recipes/decorations/beehive": {
+  "minecraft:recipes/decorations/chest": {
     "criteria": {
-      "has_honeycomb": "2025-08-18 04:41:33 -0600"
+      "has_lots_of_items": "2025-08-23 14:55:59 -0600"
     },
     "done": true
   },
-  "chat_plays_mc:soap": {
+  "minecraft:story/shiny_gear": {
     "criteria": {
-      "soap": "2025-08-18 04:41:20 -0600"
+      "diamond_helmet": "2025-08-23 14:55:59 -0600"
+    },
+    "done": true
+  },
+  "minecraft:recipes/redstone/dispenser": {
+    "criteria": {
+      "has_bow": "2025-08-23 14:55:59 -0600"
+    },
+    "done": true
+  },
+  "minecraft:recipes/misc/bone_meal": {
+    "criteria": {
+      "has_bone": "2025-08-23 14:55:59 -0600"
     },
     "done": true
   },
   "minecraft:adventure/adventuring_time": {
     "criteria": {
-      "minecraft:plains": "2025-08-18 04:41:11 -0600"
+      "minecraft:beach": "2025-08-23 14:56:00 -0600",
+      "minecraft:forest": "2025-08-23 14:56:04 -0600"
     },
     "done": false
-  },
-  "chat_plays_mc:bitten_soap": {
-    "criteria": {
-      "bitten_soap": "2025-08-18 04:42:14 -0600"
-    },
-    "done": true
-  },
-  "minecraft:recipes/decorations/candle": {
-    "criteria": {
-      "has_honeycomb": "2025-08-18 04:41:33 -0600"
-    },
-    "done": true
-  },
-  "minecraft:husbandry/root": {
-    "criteria": {
-      "consumed_item": "2025-08-18 04:42:14 -0600"
-    },
-    "done": true
-  },
-  "minecraft:recipes/decorations/honeycomb_block": {
-    "criteria": {
-      "has_honeycomb": "2025-08-18 04:41:33 -0600"
-    },
-    "done": true
   },
   "DataVersion": 4440
 }

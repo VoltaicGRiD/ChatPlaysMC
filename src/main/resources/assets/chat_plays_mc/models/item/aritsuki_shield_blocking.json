@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/shield_blocking",
+  "textures": {
+    "particle": "chat_plays_mc:item/aritsuki_shield"
+  }
+}
